@@ -1,0 +1,1859 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090f19">
+  <link rel="icon" href="data:,">
+  <title>四色兰顿蚂蚁</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #090f19;
+      --surface: #111c2a;
+      --ink: #edf7ff;
+      --soft-ink: #9eb1c5;
+      --line: #2b3e52;
+      --grid: #506373;
+      --green: #6cf0e3;
+      --green-dark: #36cfc1;
+      --green-wash: #153a43;
+      --white-cell: #bccdd5;
+      --black-cell: #131f30;
+      --blue-cell: #3981ff;
+      --yellow-cell: #f4c854;
+      --concealed-cell: #354658;
+      --mono: ui-monospace, "SF Mono", Consolas, monospace;
+      font: 15px/1.5 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 36% 0, #16283c, var(--paper) 640px);
+      color: var(--ink);
+    }
+    button, input, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:disabled, select:disabled, input:disabled { cursor: default; }
+    button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 3px;
+    }
+    button {
+      min-height: 41px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 600;
+    }
+    button:hover:not(:disabled) { border-color: var(--green); }
+    button:disabled { opacity: .46; }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    h1, h2, p, dl, dd { margin: 0; }
+
+    .app { max-width: 1224px; margin: auto; padding: 38px 32px 36px; }
+    .masthead {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 24px;
+    }
+    .mark {
+      display: grid;
+      flex: 0 0 49px;
+      height: 49px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 3px;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .mark span { border-radius: 3px; background: var(--black-cell); }
+    .mark span:nth-child(2) { background: var(--yellow-cell); }
+    .mark span:nth-child(3) { background: var(--blue-cell); }
+    .mark span:nth-child(4) { background: var(--white-cell); }
+    h1 { font-size: clamp(30px, 4vw, 45px); line-height: 1.2; letter-spacing: -.045em; font-weight: 760; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 328px; align-items: start; gap: 18px; }
+    .board-panel, .sidebar { border: 1px solid var(--line); background: var(--surface); border-radius: 13px; }
+    .board-panel { min-width: 0; padding: 16px 18px 12px; }
+    .board-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .board-size { margin-inline-start: 5px; color: var(--soft-ink); font: 500 12px var(--mono); white-space: nowrap; }
+    .board-top h2, .section-title { font-size: 16px; line-height: 1.3; font-weight: 730; }
+    .metrics { display: flex; align-items: center; gap: 15px; font-size: 12px; }
+    .metrics div { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+    .metrics div + div { border-left: 1px solid var(--line); padding-left: 15px; }
+    .metrics dt { color: var(--soft-ink); }
+    .metrics dd { color: var(--ink); font: 650 13px var(--mono); }
+    .metrics #step-count { color: var(--green-dark); min-width: 1.2ch; }
+    #board { display: block; width: 100%; cursor: crosshair; touch-action: none; }
+    #board[aria-disabled="true"] { cursor: default; touch-action: pan-y; }
+    [hidden] { display: none !important; }
+    .view-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+    .view-bar button { min-height: 36px; padding: 0 13px; font-size: 13px; }
+    .view-bar button[aria-pressed=true] { background: var(--green-wash); color: var(--green); border-color: #3c8c91; }
+    .visibility-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      margin-inline-start: auto;
+      padding-inline: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .visibility-toggle input { accent-color: var(--green); }
+    .ring-stage {
+      position: relative;
+      border: 1px solid #263c51;
+      border-radius: 9px;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 54%, #172d43 0%, #0b1626 57%, #080f19 100%);
+    }
+    #ring-canvas { width: 100%; height: clamp(224px, 38vw, 452px); display: block; touch-action: none; cursor: grab; }
+    #ring-canvas:active { cursor: grabbing; }
+    .ring-controls {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 8px 17px;
+      margin-top: 8px;
+      color: var(--soft-ink);
+      font-size: 12px;
+    }
+    .ring-controls input { accent-color: var(--green); }
+    .ring-controls label { min-height: 38px; }
+    .ring-toggle { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .ring-range { display: grid; grid-template-columns: 1fr auto; flex: 1 1 100px; gap: 2px 8px; }
+    .ring-range input { width: 100%; grid-column: 1 / -1; margin: 0; }
+    .ring-range output { color: var(--ink); font: 12px var(--mono); }
+    .navigator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0 0 25px;
+    }
+    .navigator[hidden] { display: none; }
+    .navigator button { min-width: 31px; min-height: 32px; border-radius: 6px; }
+    .navigator input { min-width: 0; width: 100%; margin: 0; accent-color: var(--green); }
+    .navigator output { min-width: 82px; text-align: right; color: var(--soft-ink); font-size: 12px; white-space: nowrap; }
+    .board-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      min-height: 33px;
+      padding: 7px 0 0 25px;
+      font-size: 12px;
+      color: var(--soft-ink);
+    }
+    .state-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      vertical-align: 1px;
+    }
+    #status[data-state="paused"] .state-dot { background: #a86b1f; }
+    .board-tools, .board-rules { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+    .board-tools .palette { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .sidebar { padding: 17px; }
+    .sidebar section + section { border-top: 1px solid var(--line); margin-top: 15px; padding-top: 15px; }
+    .section-top { display: flex; justify-content: space-between; align-items: center; min-height: 27px; margin-bottom: 8px; }
+    .text-button {
+      border: none;
+      background: transparent;
+      color: var(--green-dark);
+      padding: 0 3px;
+      min-height: 32px;
+      font-size: 12px;
+    }
+    .text-button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+    .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .tool {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 9px;
+      padding: 0 10px;
+      height: 43px;
+      font-size: 13px;
+    }
+    .tool[aria-pressed="true"] { background: var(--green-wash); border-color: var(--green); color: var(--green-dark); }
+    .swatch { flex: 0 0 17px; height: 17px; border-radius: 4px; border: 1px solid var(--grid); }
+    .white { background: var(--white-cell); }
+    .black { background: var(--black-cell); }
+    .blue { background: var(--blue-cell); }
+    .yellow { background: var(--yellow-cell); }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; align-items: end; margin-top: 8px; }
+    .field-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .field { display: grid; gap: 4px; color: var(--soft-ink); font-size: 12px; }
+    .count-key { display: flex; align-items: center; gap: 5px; }
+    .count-key span { width: 8px; height: 8px; border: 1px solid #97adbf; border-radius: 50%; }
+    .count-key .white-ant { background: #f1f5fa; }
+    .count-key .red-ant { background: #de4961; border-color: #ff9cab; }
+    .count-key .black-ant { background: #101625; }
+    .field input, .field select {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      height: 43px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 0 9px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    .field input { font-family: var(--mono); }
+    .field input:disabled, .field select:disabled { opacity: .52; }
+    .ant-actions { display: grid; grid-template-columns: 1.3fr 1fr; gap: 7px; margin-top: 8px; }
+    .ant-actions button { font-size: 13px; }
+    .setup-feedback { margin-top: 6px; color: #ffd289; font-size: 12px; }
+    .start-preview {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      align-items: center;
+      gap: 11px;
+      margin-top: 10px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0d1725;
+    }
+    .start-neighbors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+    .start-neighbors button {
+      min-height: 34px;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border-color: #516575;
+      border-radius: 4px;
+      background: var(--tile);
+    }
+    .start-neighbors button:disabled { opacity: 1; }
+    .start-neighbors button[data-outside] { background: repeating-linear-gradient(135deg, #142334 0 4px, #1b2c3d 4px 6px); }
+    .start-neighbors button[data-other] { border-style: dashed; border-color: #f1a453; }
+    .start-neighbors button[data-center] { border: 2px solid var(--green); }
+    .preview-ant {
+      display: block;
+      width: 25px;
+      height: 25px;
+      transform: rotate(var(--ant-angle, 0deg));
+      pointer-events: none;
+    }
+    .preview-ant img { width: 100%; height: 100%; object-fit: contain; }
+    .preview-info { display: grid; gap: 5px; font-size: 12px; color: var(--soft-ink); }
+    .preview-info h3 { margin: 0; font-size: 13px; color: var(--ink); }
+    #start-summary { color: var(--ink); }
+    .start-icon { color: var(--green); width: 17px; font-size: 18px; line-height: 1; text-align: center; }
+    .actions { display: grid; grid-template-columns: 1.15fr .9fr 1fr; gap: 6px; margin-top: 10px; }
+    .actions button { white-space: nowrap; font-size: 13px; padding: 0 6px; }
+    .repeat-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px 12px;
+      margin-top: 8px;
+    }
+    .repeat-controls button, .repeat-controls input { min-height: 35px; font-size: 13px; }
+    #repeat-toggle { padding-inline: 12px; }
+    #repeat-toggle[aria-pressed="true"] { color: var(--green); border-color: #3c8c91; background: var(--green-wash); }
+    .repeat-controls label { display: flex; align-items: center; gap: 6px; color: var(--soft-ink); font-size: 12px; }
+    #repeat-delay {
+      width: 64px;
+      padding-inline: 6px;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    .primary { background: var(--green); border-color: var(--green); color: #082323; }
+    .primary:hover:not(:disabled) { background: var(--green-dark); border-color: var(--green-dark); }
+    .rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px; font-size: 12px; }
+    .rules div { display: grid; grid-template-columns: 53px 1fr; align-items: center; column-gap: 8px; }
+    .rules dt { display: flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 650; }
+    .rules .swatch { flex-basis: 11px; height: 11px; border-radius: 3px; }
+    .rules dd, .rule-note { color: var(--soft-ink); }
+    .rule-note { margin-top: 8px; font-size: 11px; }
+    @media (max-width: 840px) {
+      .app { padding: 27px 18px 26px; max-width: 600px; }
+      .masthead { margin-bottom: 17px; gap: 10px; }
+      .mark { flex-basis: 38px; height: 38px; padding: 5px; gap: 2px; border-radius: 8px; }
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 11px; }
+      .board-panel { padding: 11px 9px 7px; }
+      .board-top { margin-bottom: 5px; padding-inline: 3px; flex-wrap: wrap; }
+      .metrics, .metrics div { gap: 5px; }
+      .metrics div + div { padding-left: 6px; }
+      .metrics dd { font-size: 12px; }
+      .board-footer { padding-left: 25px; min-height: 28px; }
+      .sidebar { padding: 13px; }
+      .palette { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+      .palette .tool { justify-content: center; gap: 5px; padding-inline: 4px; }
+      .palette .swatch { flex-basis: 14px; height: 14px; }
+      .sidebar section + section { margin-top: 12px; padding-top: 12px; }
+      .rules { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 370px) {
+      .app { padding-inline: 10px; }
+      .metrics { font-size: 11px; }
+      .board-top h2 { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="masthead">
+      <div class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <h1>四色兰顿蚂蚁</h1>
+    </header>
+
+    <div class="layout">
+      <section class="board-panel" aria-labelledby="board-title">
+        <div class="board-top">
+          <h2 id="board-title">棋盘 <span class="board-size" id="board-size">200×15</span></h2>
+          <dl class="metrics">
+            <div><dt>轮次</dt><dd><span id="step-count">0</span><span id="step-limit"></span></dd></div>
+            <div><dt id="tracked-id">001 号</dt><dd id="position">(8, 8)</dd></div>
+            <div><dt>朝向</dt><dd id="heading">上</dd></div>
+          </dl>
+        </div>
+        <div class="view-bar" aria-label="棋盘视图">
+          <button id="show-ring" type="button" aria-pressed="true">环屏</button>
+          <button id="show-flat" type="button" aria-pressed="false">展开棋盘</button>
+          <label class="visibility-toggle"><input id="hide-tile-colors" type="checkbox">隐藏格子颜色</label>
+        </div>
+        <div id="ring-view">
+          <div class="ring-stage">
+            <canvas id="ring-canvas" tabindex="0" role="img" aria-label="兰顿蚂蚁三维环屏" aria-describedby="board-help"></canvas>
+          </div>
+          <div class="ring-controls">
+            <label class="ring-toggle"><input id="auto-spin" type="checkbox"> 自动旋转</label>
+            <label class="ring-range"><span>旋转角度</span><output id="angle-value" aria-hidden="true">0°</output>
+              <input id="spin-angle" aria-label="旋转角度" type="range" min="0" max="359" value="0">
+            </label>
+            <label class="ring-range"><span>旋转速度</span><output id="speed-value" aria-hidden="true">18°/秒</output>
+              <input id="spin-speed" aria-label="旋转速度" type="range" min="1" max="90" value="18">
+            </label>
+          </div>
+        </div>
+        <div id="flat-view" hidden>
+          <canvas id="board" tabindex="0" role="img" aria-label="兰顿蚂蚁棋盘" aria-describedby="board-help" aria-disabled="false"></canvas>
+          <div class="navigator" id="navigator">
+            <button id="view-prev" type="button" aria-label="向左浏览">‹</button>
+            <input id="view-start" type="range" min="1" value="1" step="1" aria-label="横向浏览">
+            <button id="view-next" type="button" aria-label="向右浏览">›</button>
+            <output id="visible-columns" for="view-start"></output>
+          </div>
+        </div>
+        <div class="board-footer">
+          <span id="status" data-state="setup" role="status"><span class="state-dot" aria-hidden="true"></span><span id="status-text">可编辑</span></span>
+          <span id="board-help">点按或拖动涂色</span>
+        </div>
+        <div class="actions" aria-label="运行控制">
+          <button class="primary" id="play" type="button">开始</button>
+          <button id="step" type="button">走一步</button>
+          <button id="reset" type="button">恢复布局</button>
+        </div>
+        <div class="repeat-controls">
+          <button id="repeat-toggle" type="button" aria-pressed="false">开启循环</button>
+          <label>循环间隔 <input id="repeat-delay" type="number" aria-label="循环间隔" inputmode="decimal" min="0" max="3600" step="0.1" value="1"> 秒</label>
+        </div>
+        <section class="board-tools" id="board-tools" aria-labelledby="paint-title">
+          <div class="section-top">
+            <h2 class="section-title" id="paint-title">涂色工具</h2>
+            <button class="text-button" id="clear" type="button">清空颜色</button>
+          </div>
+          <div class="palette">
+            <button class="tool" type="button" data-tool="white" aria-pressed="false"><span class="swatch white" aria-hidden="true"></span>白色</button>
+            <button class="tool" type="button" data-tool="black" aria-pressed="true"><span class="swatch black" aria-hidden="true"></span>黑色</button>
+            <button class="tool" type="button" data-tool="blue" aria-pressed="false"><span class="swatch blue" aria-hidden="true"></span>蓝色</button>
+            <button class="tool" type="button" data-tool="yellow" aria-pressed="false"><span class="swatch yellow" aria-hidden="true"></span>黄色</button>
+          </div>
+        </section>
+        <details class="board-rules">
+          <summary>四种格子规则</summary>
+          <dl class="rules">
+            <div><dt><span class="swatch white" aria-hidden="true"></span>白格</dt><dd>右转，原地变黑，前进一格</dd></div>
+            <div><dt><span class="swatch black" aria-hidden="true"></span>黑格</dt><dd>左转，原地变白，前进一格</dd></div>
+            <div><dt><span class="swatch blue" aria-hidden="true"></span>蓝格</dt><dd>掉头，前进一格</dd></div>
+            <div><dt><span class="swatch yellow" aria-hidden="true"></span>黄格</dt><dd>直行两格，跳过中间格</dd></div>
+          </dl>
+          <p class="rule-note">蓝格和黄格保留原色。首尾两列相连，碰到上下边缘时折返。</p>
+        </details>
+      </section>
+
+      <aside class="sidebar" aria-label="棋盘控制">
+        <section aria-labelledby="setup-title">
+          <div class="section-top">
+            <h2 class="section-title" id="setup-title">盘面设置</h2>
+            <button class="text-button" id="arrange-neighbors" type="button">布置周围格子</button>
+          </div>
+          <div class="field-row three">
+            <label class="field">列数<input id="columns" type="number" inputmode="numeric" min="1" max="200" value="200"></label>
+            <label class="field">行数<input id="rows" type="number" inputmode="numeric" min="1" max="15" value="15"></label>
+            <label class="field">蚂蚁数量<input id="ant-count" type="number" inputmode="numeric" min="0" max="3000" value="1"></label>
+          </div>
+          <div class="field-row three">
+            <label class="field"><span class="count-key"><span class="white-ant" aria-hidden="true"></span>白蚂蚁数量</span><input id="white-count" type="number" inputmode="numeric" min="0" max="3000" value="0"></label>
+            <label class="field"><span class="count-key"><span class="red-ant" aria-hidden="true"></span>红蚂蚁数量</span><input id="red-count" type="number" inputmode="numeric" min="0" max="3000" value="0"></label>
+            <label class="field"><span class="count-key"><span class="black-ant" aria-hidden="true"></span>黑蚂蚁数量</span><input id="black-count" type="number" inputmode="numeric" min="0" max="3000" value="1"></label>
+          </div>
+          <p class="rule-note">更改数量后自动摆放蚂蚁，并布置各自起点周围的格子。</p>
+          <p class="setup-feedback" id="setup-feedback" role="status" hidden></p>
+        </section>
+
+        <section aria-labelledby="ants-title">
+          <div class="section-top"><h2 class="section-title" id="ants-title">单只蚂蚁设置</h2></div>
+          <div class="field-row">
+            <label class="field">蚂蚁编号<select id="ant-id" aria-label="蚂蚁编号"></select></label>
+            <label class="field">初始朝向
+              <select id="initial-direction" aria-label="初始朝向">
+                <option value="0">↑ 上</option>
+                <option value="1">→ 右</option>
+                <option value="2">↓ 下</option>
+                <option value="3">← 左</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">列坐标<input id="ant-x" type="number" inputmode="numeric" min="1" max="200" value="8"></label>
+            <label class="field">行坐标<input id="ant-y" type="number" inputmode="numeric" min="1" max="15" value="8"></label>
+          </div>
+          <div class="field-row">
+            <label class="field">蚂蚁颜色<select id="ant-color" aria-label="蚂蚁颜色">
+              <option value="black">黑</option><option value="white">白</option><option value="red">红</option>
+            </select></label>
+            <label class="field">单只步数<input id="ant-limit" type="number" inputmode="numeric" min="0" max="1000000" placeholder="跟随颜色"></label>
+          </div>
+          <div class="ant-actions">
+            <button class="tool" type="button" data-tool="ant" aria-pressed="false"><span class="start-icon" aria-hidden="true">↟</span>摆放选中蚂蚁</button>
+            <button id="locate" type="button">定位选中蚂蚁</button>
+          </div>
+          <div class="start-preview" id="start-preview">
+            <div class="start-neighbors" id="start-neighbors" role="group" aria-label="起点周围九宫格"></div>
+            <div class="preview-info">
+              <h3>初始九宫格</h3>
+              <p id="start-summary"></p>
+              <p id="start-territory"></p>
+              <p id="start-preview-help">虚线标出其他区域。选色后可点格涂色。</p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="simulation-title">
+          <div class="section-top"><h2 class="section-title" id="simulation-title">运行模拟</h2></div>
+          <div class="field-row three">
+            <label class="field">黑蚂蚁步数<input id="black-limit" type="number" inputmode="numeric" min="0" max="1000000" value="8"></label>
+            <label class="field">白蚂蚁步数<input id="white-limit" type="number" inputmode="numeric" min="0" max="1000000" value="12"></label>
+            <label class="field">红蚂蚁步数<input id="red-limit" type="number" inputmode="numeric" min="0" max="1000000" value="20"></label>
+          </div>
+          <div class="field-row">
+            <label class="field">播放速度
+              <select id="speed" aria-label="播放速度">
+                <option value="1">1 轮/秒</option>
+                <option value="5">5 轮/秒</option>
+                <option value="12" selected>12 轮/秒</option>
+                <option value="30">30 轮/秒</option>
+                <option value="120">120 轮/秒</option>
+                <option value="1000">1000 轮/秒</option>
+              </select>
+            </label>
+            <p class="field">选中蚂蚁已走 <strong id="ant-moves">0/8 步</strong></p>
+          </div>
+          <p class="rule-note">每轮各走一步。遇到自己区域的边界时折返，黄格跳两格记一步。</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    'use strict';
+
+    const board = document.querySelector('#board');
+    const context = board.getContext('2d');
+    const buttons = [...document.querySelectorAll('[data-tool]')];
+    const clearButton = document.querySelector('#clear');
+    const hideColors = document.querySelector('#hide-tile-colors');
+    const paintPanel = document.querySelector('#board-tools');
+    const playButton = document.querySelector('#play');
+    const stepButton = document.querySelector('#step');
+    const resetButton = document.querySelector('#reset');
+    const repeatToggle = document.querySelector('#repeat-toggle');
+    const repeatDelayInput = document.querySelector('#repeat-delay');
+    const columnInput = document.querySelector('#columns');
+    const rowInput = document.querySelector('#rows');
+    const antCountInput = document.querySelector('#ant-count');
+    const rosterInputs = {
+      white: document.querySelector('#white-count'),
+      red: document.querySelector('#red-count'),
+      black: document.querySelector('#black-count')
+    };
+    const arrangeButton = document.querySelector('#arrange-neighbors');
+    const antIdInput = document.querySelector('#ant-id');
+    const xInput = document.querySelector('#ant-x');
+    const yInput = document.querySelector('#ant-y');
+    const directionInput = document.querySelector('#initial-direction');
+    const colorInput = document.querySelector('#ant-color');
+    const personalLimitInput = document.querySelector('#ant-limit');
+    const groupInputs = [...document.querySelectorAll('#black-limit, #white-limit, #red-limit')];
+    const groupLimits = Object.fromEntries(groupInputs.map(input => [input.id.split('-')[0], Number(input.value)]));
+    const movesText = document.querySelector('#ant-moves');
+    const locateButton = document.querySelector('#locate');
+    const setupFeedback = document.querySelector('#setup-feedback');
+    const startPreview = document.querySelector('#start-preview');
+    const startSummary = document.querySelector('#start-summary');
+    const startTerritory = document.querySelector('#start-territory');
+    const startPreviewHelp = document.querySelector('#start-preview-help');
+    const previewCells = Array.from({ length: 9 }, (_, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const marker = document.createElement('span');
+      if (index === 4) {
+        const image = document.createElement('img');
+        image.alt = '';
+        marker.className = 'preview-ant';
+        marker.setAttribute('aria-hidden', 'true');
+        marker.append(image);
+        button.append(marker);
+      }
+      document.querySelector('#start-neighbors').append(button);
+      return { button, marker, dx: index % 3 - 1, dy: Math.floor(index / 3) - 1 };
+    });
+    const speedInput = document.querySelector('#speed');
+    const countText = document.querySelector('#step-count');
+    const limitText = document.querySelector('#step-limit');
+    const positionText = document.querySelector('#position');
+    const headingText = document.querySelector('#heading');
+    const trackedIdText = document.querySelector('#tracked-id');
+    const boardSizeText = document.querySelector('#board-size');
+    const navigatorPanel = document.querySelector('#navigator');
+    const viewStart = document.querySelector('#view-start');
+    const viewPrev = document.querySelector('#view-prev');
+    const viewNext = document.querySelector('#view-next');
+    const visibleColumnsText = document.querySelector('#visible-columns');
+    const flatView = document.querySelector('#flat-view');
+    const ringView = document.querySelector('#ring-view');
+    const showFlat = document.querySelector('#show-flat');
+    const showRing = document.querySelector('#show-ring');
+    const viewBar = document.querySelector('.view-bar');
+    const status = document.querySelector('#status');
+    const statusText = document.querySelector('#status-text');
+    const help = document.querySelector('#board-help');
+    const mobile = matchMedia('(max-width: 840px)');
+    const styles = getComputedStyle(document.documentElement);
+    const theme = Object.fromEntries(
+      ['white-cell', 'black-cell', 'blue-cell', 'yellow-cell', 'concealed-cell', 'grid', 'green', 'soft-ink', 'mono']
+        .map(name => [name, styles.getPropertyValue('--' + name).trim()])
+    );
+
+    const directions = [
+      { x: 0, y: -1, label: '上' },
+      { x: 1, y: 0, label: '右' },
+      { x: 0, y: 1, label: '下' },
+      { x: -1, y: 0, label: '左' }
+    ];
+    const rules = {
+      white: { turn: 1, distance: 1, paint: 'black' },
+      black: { turn: -1, distance: 1, paint: 'white' },
+      blue: { turn: 2, distance: 1 },
+      yellow: { turn: 0, distance: 2 }
+    };
+
+    const manualTiles = new Map([
+      ['9,8', 'black'], ['9,7', 'yellow'], ['9,6', 'black'], ['9,5', 'blue'],
+      ['3,5', 'black'], ['4,5', 'black'], ['4,4', 'yellow'], ['5,5', 'black'],
+      ['5,6', 'blue'], ['4,6', 'black'], ['6,7', 'yellow'], ['10,5', 'black'],
+      ['12,9', 'black'], ['12,10', 'blue'], ['12,11', 'black'], ['13,11', 'yellow'],
+      ['11,11', 'black'], ['6,12', 'blue'], ['7,12', 'black']
+    ]);
+    const antColors = {
+      black: { fill: '#101625', edge: '#6d8197', text: '#e7f1ff' },
+      white: { fill: '#f1f5fa', edge: '#f1f5fa', text: '#101625' },
+      red: { fill: '#de4961', edge: '#ff9cab', text: '#fff' }
+    };
+    const colorNames = { black: '黑', white: '白', red: '红', blue: '蓝', yellow: '黄' };
+    const starts = [{ id: 1, x: 8, y: 8, direction: 0, color: 'black', limit: null }];
+    const setup = new Map(manualTiles);
+    let autoArrangeTiles = false;
+
+    function newRun() {
+      return starts.map(start => ({ ...start, moves: 0, budget: start.limit ?? groupLimits[start.color] }));
+    }
+
+    let tiles = new Map(setup);
+    let ants = newRun();
+    let selectedId = 1;
+    let mode = 'ring';
+    let columns = Number(columnInput.value);
+    let rows = Number(rowInput.value);
+    let owners;
+    let territorySizes;
+    let lastStartPreview = '';
+    let leftColumn = 1;
+    let visibleColumns, cellSize, logicalWidth, logicalHeight;
+    let followSelected = true;
+    let selectedTool = 'black';
+    let steps = 0;
+    let stepLimit = ants[0].budget;
+    let running = false;
+    let repeatEnabled = false;
+    let repeatDelay = Number(repeatDelayInput.value);
+    let repeatTimer = null;
+    let finishedAt = null;
+    let frameId = 0;
+    let lastFrame = 0;
+    let elapsed = 0;
+    let pointerId = null;
+    let lastPaint = null;
+    let cursor = null;
+    const inset = 25;
+
+    function selectedAnt() {
+      return ants.find(ant => ant.id === selectedId);
+    }
+
+    function selectedStart() {
+      return starts.find(start => start.id === selectedId);
+    }
+
+    function formatId(id) {
+      return String(id).padStart(3, '0');
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function wrap(value, size) {
+      return ((value - 1) % size + size) % size + 1;
+    }
+
+    function cellKey(x, y) {
+      return x + ',' + y;
+    }
+
+    function ownerAt(x, y) {
+      if (y < 1 || y > rows) return 0;
+      const column = x < 1 ? columns : x > columns ? 1 : x;
+      return owners[(y - 1) * columns + column - 1];
+    }
+
+    function distanceSquared(x, y, target) {
+      const difference = Math.abs(x - target.x);
+      return Math.min(difference, columns - difference) ** 2 + (y - target.y) ** 2;
+    }
+
+    function rebuildTerritories() {
+      owners = new Uint16Array(columns * rows);
+      territorySizes = new Uint16Array((starts.at(-1)?.id ?? 0) + 1);
+      for (let y = 1; y <= rows; y++) {
+        for (let x = 1; x <= columns; x++) {
+          let nearest = 0;
+          let best = Infinity;
+          for (const start of starts) {
+            const distance = distanceSquared(x, y, start);
+            if (distance < best) {
+              nearest = start.id;
+              best = distance;
+            }
+          }
+          owners[(y - 1) * columns + x - 1] = nearest;
+          territorySizes[nearest]++;
+        }
+      }
+    }
+
+    function writeTile(map, key, color) {
+      if (color === 'white') map.delete(key);
+      else map.set(key, color);
+    }
+
+    const neighborhoodOffsets = [
+      [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]
+    ];
+    const arrangementColors = ['black', 'blue', 'yellow'];
+
+    function rebuildInitialTiles() {
+      setup.clear();
+      if (autoArrangeTiles) {
+        for (const start of starts) {
+          const turn = (start.id - 1) % 4;
+          const keys = new Set();
+          for (let index = 0; index < neighborhoodOffsets.length; index++) {
+            const group = index < 4 ? 0 : 4;
+            const [dx, dy] = neighborhoodOffsets[group + (index + turn) % 4];
+            const x = wrap(start.x + dx, columns);
+            const y = start.y + dy;
+            if ((x !== start.x || y !== start.y) && ownerAt(x, y) === start.id) keys.add(cellKey(x, y));
+          }
+          if (keys.size < arrangementColors.length) keys.add(cellKey(start.x, start.y));
+          let painted = 0;
+          for (const key of keys) {
+            if (manualTiles.has(key)) continue;
+            setup.set(key, arrangementColors[(start.id - 1 + painted) % arrangementColors.length]);
+            if (++painted === arrangementColors.length) break;
+          }
+        }
+      }
+      for (const [key, color] of manualTiles) writeTile(setup, key, color);
+      tiles = new Map(setup);
+    }
+
+    function advance() {
+      for (const ant of ants) {
+        if (ant.moves >= ant.budget) continue;
+        const key = cellKey(ant.x, ant.y);
+        const rule = rules[tiles.get(key) ?? 'white'];
+        if (rule.paint) writeTile(tiles, key, rule.paint);
+
+        ant.direction = (ant.direction + rule.turn + 4) % 4;
+        for (let distance = 0; distance < rule.distance; distance++) {
+          const direction = directions[ant.direction];
+          let nextX = ant.x + direction.x;
+          let nextY = ant.y + direction.y;
+          if (ownerAt(nextX, nextY) !== ant.id) {
+            ant.direction = (ant.direction + 2) % 4;
+            nextX = ant.x - direction.x;
+            nextY = ant.y - direction.y;
+          }
+          if (ownerAt(nextX, nextY) === ant.id) {
+            ant.x = wrap(nextX, columns);
+            ant.y = nextY;
+          }
+        }
+        ant.moves++;
+      }
+      steps++;
+    }
+
+    function showColumn(column, center = false) {
+      if (center || column < leftColumn || column >= leftColumn + visibleColumns) {
+        leftColumn = clamp(column - Math.floor(visibleColumns / 2), 1, columns - visibleColumns + 1);
+      }
+    }
+
+    function canEdit() {
+      return !running && steps === 0;
+    }
+
+    function canEditBoard() {
+      return canEdit() && !hideColors.checked;
+    }
+
+    function updateStartPreview(start, budget, boardEditing) {
+      const concealed = hideColors.checked;
+      const neighborhood = previewCells.map(cell => {
+        const x = wrap(start.x + cell.dx, columns);
+        const y = start.y + cell.dy;
+        const owner = ownerAt(x, y);
+        const color = concealed ? null : setup.get(cellKey(x, y)) ?? 'white';
+        return { ...cell, x, y, owner, color };
+      });
+      const direction = directions[start.direction];
+      const summary = colorNames[start.color] + '蚂蚁 · 朝' + direction.label + ' · ' + budget + ' 步';
+      const title = formatId(start.id) + ' 号 · 区域 ' + territorySizes[start.id] + ' 格';
+      const painting = boardEditing && selectedTool !== 'ant';
+      const signature = JSON.stringify([summary, title, painting, neighborhood.map(cell => [cell.x, cell.y, cell.owner, cell.color])]);
+      if (signature === lastStartPreview) return;
+      lastStartPreview = signature;
+      startSummary.textContent = '(' + start.x + ', ' + start.y + ') · ' + summary;
+      startTerritory.textContent = title;
+      startPreviewHelp.textContent = concealed ? '格子颜色已隐藏。' : '虚线标出其他区域。选色后可点格涂色。';
+      for (const { button, marker, x, y, owner, color, dx, dy } of neighborhood) {
+        const central = dx === 0 && dy === 0;
+        const tileLabel = color ? colorNames[color] + '格 · ' : '';
+        const label = owner ? '(' + x + ', ' + y + ') · ' + tileLabel + formatId(owner) + ' 号区域' : '盘面外';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.disabled = !owner || !painting;
+        button.toggleAttribute('data-outside', !owner);
+        button.toggleAttribute('data-other', owner > 0 && owner !== start.id);
+        button.toggleAttribute('data-center', central);
+        button.style.setProperty('--tile', theme[(color ?? 'concealed') + '-cell']);
+        if (central) {
+          const sprite = antSprites[start.color];
+          if (sprite) marker.firstElementChild.src = sprite.url;
+          marker.style.setProperty('--ant-angle', start.direction * 90 + 'deg');
+        }
+      }
+    }
+
+    function updateControls() {
+      const editing = canEdit();
+      const boardEditing = canEditBoard();
+      const concealed = hideColors.checked;
+      const finished = steps > 0 && steps >= stepLimit;
+      const ant = selectedAnt();
+      const start = selectedStart();
+      const labels = {
+        setup: ['可编辑', mode === 'ring' ? '左右转动，上下调整俯仰' : selectedTool === 'ant' ? '点按格子摆放 ' + formatId(selectedId) + ' 号' : '点按或拖动涂色'],
+        running: ['运行中', mode === 'ring' ? '拖动可旋转环屏' : followSelected ? '跟随 ' + formatId(selectedId) + ' 号' : '可横向浏览棋盘'],
+        waiting: ['等待重跑', repeatDelay + ' 秒后从初始布局重跑'],
+        paused: ['已暂停', '恢复布局后可编辑'],
+        finished: ['已达到设定步数', '可恢复布局或再跑一次']
+      };
+      const state = running ? 'running' : repeatTimer !== null ? 'waiting' : finished ? 'finished' : editing ? 'setup' : 'paused';
+
+      countText.textContent = steps;
+      limitText.textContent = '/' + stepLimit;
+      positionText.textContent = ant ? '(' + ant.x + ', ' + ant.y + ')' : '—';
+      headingText.textContent = ant ? directions[ant.direction].label : '—';
+      movesText.textContent = ant ? ant.moves + '/' + ant.budget + ' 步' : '—';
+      trackedIdText.textContent = ant ? formatId(selectedId) + ' 号' : '坐标';
+      boardSizeText.textContent = columns + '×' + rows;
+      status.dataset.state = state;
+      if (statusText.textContent !== labels[state][0]) statusText.textContent = labels[state][0];
+      const helpText = concealed ? '格子颜色已隐藏' : labels[state][1];
+      if (help.textContent !== helpText) help.textContent = helpText;
+
+      board.setAttribute('aria-disabled', String(!boardEditing));
+      paintPanel.hidden = concealed;
+      for (const button of buttons) {
+        button.disabled = !boardEditing || (button.dataset.tool === 'ant' && !start);
+        button.setAttribute('aria-pressed', String(button.dataset.tool === selectedTool));
+      }
+      for (const field of [columnInput, rowInput, antCountInput, ...Object.values(rosterInputs), ...groupInputs]) field.disabled = !editing;
+      for (const field of [xInput, yInput, directionInput, colorInput, personalLimitInput]) field.disabled = !editing || !start;
+      antIdInput.disabled = !start;
+      locateButton.disabled = !start;
+      arrangeButton.disabled = !boardEditing || !start;
+      if (document.activeElement !== xInput) xInput.value = start?.x ?? '';
+      if (document.activeElement !== yInput) yInput.value = start?.y ?? '';
+      if (document.activeElement !== personalLimitInput) personalLimitInput.value = start?.limit ?? '';
+      directionInput.value = start?.direction ?? '';
+      colorInput.value = start?.color ?? '';
+      clearButton.disabled = !editing || (!setup.size && !manualTiles.size && !autoArrangeTiles);
+      stepButton.disabled = running || steps >= stepLimit;
+      playButton.disabled = stepLimit === 0;
+      resetButton.disabled = editing;
+      playButton.textContent = running || repeatTimer !== null ? '暂停' : finished ? '再跑一次' : steps ? '继续' : '开始';
+      repeatToggle.setAttribute('aria-pressed', String(repeatEnabled));
+      repeatToggle.textContent = repeatEnabled ? '关闭循环' : '开启循环';
+      startPreview.hidden = !start;
+      if (start) updateStartPreview(start, ant.budget, boardEditing);
+    }
+
+    function drawAnt(ant, x, y, stacked) {
+      const selected = ant.id === selectedId;
+      const center = x + cellSize / 2;
+      drawAntSprite(context, ant, center, y + cellSize * .41, cellSize * .80, ant.direction * Math.PI / 2);
+      context.save();
+      context.fillStyle = selected ? theme.green : '#eef6ff';
+      context.strokeStyle = '#080f19';
+      context.lineWidth = 2.1;
+      context.lineJoin = 'round';
+      context.font = '700 ' + Math.max(7, cellSize * .28) + 'px ' + theme.mono;
+      const label = formatId(ant.id) + (stacked ? '+' : '');
+      context.strokeText(label, center, y + cellSize * .84, cellSize - 4);
+      context.fillText(label, center, y + cellSize * .84, cellSize - 4);
+      context.restore();
+    }
+
+    function draw() {
+      if (!cellSize) return;
+      const gridWidth = visibleColumns * cellSize;
+      const gridHeight = rows * cellSize;
+      const concealed = hideColors.checked;
+
+      context.clearRect(0, 0, logicalWidth, logicalHeight);
+      context.fillStyle = theme[concealed ? 'concealed-cell' : 'white-cell'];
+      context.fillRect(inset, inset, gridWidth, gridHeight);
+      if (!concealed) {
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < visibleColumns; col++) {
+            const color = tiles.get(cellKey(leftColumn + col, row + 1));
+            const x = inset + col * cellSize;
+            const y = inset + row * cellSize;
+            if (color) {
+              context.fillStyle = theme[color + '-cell'];
+              context.fillRect(x, y, cellSize, cellSize);
+            }
+            if (ants.length > 1 && ownerAt(leftColumn + col, row + 1) === selectedId) {
+              context.fillStyle = '#59e6dd2c';
+              context.fillRect(x, y, cellSize, cellSize);
+            }
+          }
+        }
+      }
+
+      context.lineWidth = 1;
+      context.strokeStyle = theme.grid;
+      context.beginPath();
+      for (let col = 0; col <= visibleColumns; col++) {
+        const x = Math.round(inset + col * cellSize) + .5;
+        context.moveTo(x, inset);
+        context.lineTo(x, inset + gridHeight);
+      }
+      for (let row = 0; row <= rows; row++) {
+        const y = Math.round(inset + row * cellSize) + .5;
+        context.moveTo(inset, y);
+        context.lineTo(inset + gridWidth, y);
+      }
+      context.stroke();
+      if (ants.length > 1) drawFlatTerritories();
+
+      context.textBaseline = 'middle';
+      context.font = '10px ' + theme.mono;
+      context.textAlign = 'center';
+      context.fillStyle = theme['soft-ink'];
+      for (let col = 0; col < visibleColumns; col++) {
+        context.fillText(leftColumn + col, inset + (col + .5) * cellSize, inset / 2 + 1, cellSize - 3);
+      }
+      for (let row = 0; row < rows; row++) {
+        context.fillText(row + 1, inset / 2, inset + (row + .5) * cellSize);
+      }
+
+      for (const { ant, stacked } of groupAnts().values()) {
+        if (ant.x < leftColumn || ant.x >= leftColumn + visibleColumns) continue;
+        drawAnt(ant, inset + (ant.x - leftColumn) * cellSize, inset + (ant.y - 1) * cellSize, stacked);
+      }
+      if (cursor && canEditBoard()) {
+        context.strokeStyle = theme.green;
+        context.lineWidth = 2;
+        context.strokeRect(inset + (cursor.x - leftColumn) * cellSize + 2,
+          inset + (cursor.y - 1) * cellSize + 2, cellSize - 4, cellSize - 4);
+      }
+    }
+
+    function drawFlatTerritories() {
+      context.beginPath();
+      for (let row = 1; row <= rows; row++) {
+        for (let col = 0; col < visibleColumns; col++) {
+          const column = leftColumn + col;
+          const owner = ownerAt(column, row);
+          const x = Math.round(inset + col * cellSize) + .5;
+          const y = Math.round(inset + (row - 1) * cellSize) + .5;
+          if (ownerAt(column - 1, row) !== owner) {
+            context.moveTo(x, y);
+            context.lineTo(x, y + cellSize);
+          }
+          if (col === visibleColumns - 1 && ownerAt(column + 1, row) !== owner) {
+            context.moveTo(x + cellSize, y);
+            context.lineTo(x + cellSize, y + cellSize);
+          }
+          if (row > 1 && ownerAt(column, row - 1) !== owner) {
+            context.moveTo(x, y);
+            context.lineTo(x + cellSize, y);
+          }
+        }
+      }
+      context.strokeStyle = '#20958f';
+      context.lineWidth = 1.8;
+      context.stroke();
+    }
+
+    function groupAnts() {
+      const grouped = new Map();
+      for (const ant of ants) {
+        const key = cellKey(ant.x, ant.y);
+        const first = grouped.get(key);
+        if (!first) grouped.set(key, { ant, stacked: false });
+        else {
+          first.stacked = true;
+          if (ant.id === selectedId) first.ant = ant;
+        }
+      }
+      return grouped;
+    }
+
+    function updateNavigator() {
+      const lastLeft = columns - visibleColumns + 1;
+      navigatorPanel.hidden = lastLeft <= 1;
+      viewStart.max = lastLeft;
+      viewStart.value = leftColumn;
+      viewPrev.disabled = leftColumn === 1;
+      viewNext.disabled = leftColumn === lastLeft;
+      const range = leftColumn + '–' + (leftColumn + visibleColumns - 1) + ' 列';
+      viewStart.setAttribute('aria-valuetext', range);
+      if (visibleColumnsText.value !== range) visibleColumnsText.value = range;
+    }
+
+    function resize() {
+      logicalWidth = viewBar.getBoundingClientRect().width;
+      const cells = Math.max(1, Math.floor((logicalWidth - inset - 1) / (mobile.matches ? 24 : 29)));
+      visibleColumns = Math.min(columns, cells);
+      cellSize = (logicalWidth - inset - 1) / cells;
+      logicalHeight = inset + rows * cellSize + 1;
+      board.style.height = logicalHeight + 'px';
+
+      const ratio = window.devicePixelRatio || 1;
+      board.width = Math.round(logicalWidth * ratio);
+      board.height = Math.round(logicalHeight * ratio);
+      context.setTransform(board.width / logicalWidth, 0, 0, board.height / logicalHeight, 0, 0);
+
+      leftColumn = clamp(leftColumn, 1, columns - visibleColumns + 1);
+      render();
+    }
+
+    function render() {
+      const ant = selectedAnt();
+      if (followSelected && ant) showColumn(ant.x);
+      updateControls();
+      updateNavigator();
+      if (mode === 'flat') draw();
+      else if (!autoSpin.checked) drawRing();
+    }
+
+    function stop() {
+      running = false;
+      cancelAnimationFrame(frameId);
+      cancelRepeat();
+    }
+
+    function cancelRepeat() {
+      clearTimeout(repeatTimer);
+      repeatTimer = null;
+      finishedAt = null;
+    }
+
+    function scheduleRepeat() {
+      clearTimeout(repeatTimer);
+      const remaining = Math.max(0, repeatDelay * 1000 - (performance.now() - finishedAt));
+      repeatTimer = setTimeout(startPlayback, remaining);
+    }
+
+    function startPlayback() {
+      if (steps >= stepLimit) restore();
+      running = true;
+      elapsed = 0;
+      lastFrame = 0;
+      frameId = requestAnimationFrame(tick);
+      render();
+    }
+
+    function restore() {
+      stop();
+      steps = 0;
+      ants = newRun();
+      tiles = new Map(setup);
+      cursor = null;
+      followSelected = true;
+      render();
+    }
+
+    function tick(time) {
+      if (!running) return;
+      if (lastFrame) elapsed += Math.min(time - lastFrame, 100);
+      lastFrame = time;
+
+      const interval = 1000 / Number(speedInput.value);
+      const count = Math.min(Math.floor(elapsed / interval), stepLimit - steps);
+      if (count > 0) {
+        elapsed -= count * interval;
+        for (let index = 0; index < count; index++) advance();
+        if (steps >= stepLimit) {
+          stop();
+          if (repeatEnabled) {
+            finishedAt = performance.now();
+            scheduleRepeat();
+          }
+        }
+        render();
+      }
+      if (running) frameId = requestAnimationFrame(tick);
+    }
+
+    function pointAt(event) {
+      const bounds = board.getBoundingClientRect();
+      const col = Math.floor((event.clientX - bounds.left - inset) / cellSize);
+      const row = Math.floor((event.clientY - bounds.top - inset) / cellSize);
+      if (col < 0 || col >= visibleColumns || row < 0 || row >= rows) return null;
+      return {
+        x: leftColumn + col,
+        y: row + 1
+      };
+    }
+
+    function applyTool(point) {
+      if (selectedTool === 'ant') {
+        placeStart(point);
+        return;
+      }
+
+      const key = cellKey(point.x, point.y);
+      manualTiles.set(key, selectedTool);
+      writeTile(setup, key, selectedTool);
+      writeTile(tiles, key, selectedTool);
+    }
+
+    function paintLine(from, to) {
+      const distance = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+      for (let index = 1; index <= distance; index++) {
+        applyTool({
+          x: Math.round(from.x + (to.x - from.x) * index / distance),
+          y: Math.round(from.y + (to.y - from.y) * index / distance)
+        });
+      }
+    }
+
+    board.addEventListener('pointerdown', event => {
+      if (!canEditBoard() || event.button !== 0 || pointerId !== null) return;
+      const point = pointAt(event);
+      if (!point) return;
+      cursor = null;
+      applyTool(point);
+      if (selectedTool !== 'ant') {
+        pointerId = event.pointerId;
+        lastPaint = point;
+        board.setPointerCapture(pointerId);
+      }
+      render();
+    });
+
+    board.addEventListener('pointermove', event => {
+      if (!canEditBoard() || event.pointerId !== pointerId) return;
+      const point = pointAt(event);
+      if (point) {
+        if (lastPaint) paintLine(lastPaint, point);
+        else applyTool(point);
+        render();
+      }
+      lastPaint = point;
+    });
+
+    board.addEventListener('lostpointercapture', event => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      lastPaint = null;
+    });
+
+    board.addEventListener('keydown', event => {
+      if (!canEditBoard()) return;
+      const keys = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
+      const direction = directions[keys.indexOf(event.key)];
+      if (!direction && ![' ', 'Enter'].includes(event.key)) return;
+      event.preventDefault();
+      const ant = selectedAnt();
+      cursor ??= { x: clamp(ant?.x ?? leftColumn, leftColumn, leftColumn + visibleColumns - 1), y: ant?.y ?? Math.ceil(rows / 2) };
+      if (direction) {
+        cursor.x = clamp(cursor.x + direction.x, 1, columns);
+        cursor.y = clamp(cursor.y + direction.y, 1, rows);
+        followSelected = false;
+        showColumn(cursor.x);
+      } else {
+        applyTool(cursor);
+      }
+      render();
+    });
+    board.addEventListener('blur', () => { cursor = null; draw(); });
+
+    for (const { button, dx, dy } of previewCells) {
+      button.addEventListener('click', () => {
+        if (!canEditBoard() || selectedTool === 'ant') return;
+        const start = selectedStart();
+        const x = wrap(start.x + dx, columns);
+        const y = start.y + dy;
+        if (!ownerAt(x, y)) return;
+        applyTool({ x, y });
+        render();
+      });
+    }
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        selectedTool = button.dataset.tool;
+        updateControls();
+        if (selectedTool === 'ant') scrollToBoard();
+      });
+    }
+
+    clearButton.addEventListener('click', () => {
+      autoArrangeTiles = false;
+      manualTiles.clear();
+      rebuildInitialTiles();
+      render();
+    });
+    hideColors.addEventListener('change', () => {
+      cursor = null;
+      render();
+    });
+    arrangeButton.addEventListener('click', () => {
+      autoArrangeTiles = true;
+      rebuildInitialTiles();
+      render();
+    });
+    directionInput.addEventListener('change', () => {
+      const direction = Number(directionInput.value);
+      selectedStart().direction = direction;
+      selectedAnt().direction = direction;
+      render();
+    });
+
+    function readNumber(input, fallback) {
+      const value = input.valueAsNumber;
+      return Number.isFinite(value) ? clamp(Math.trunc(value), Number(input.min), Number(input.max)) : fallback;
+    }
+
+    function selectOptions() {
+      antIdInput.replaceChildren(...starts.map(({ id, color }) => new Option(formatId(id) + ' 号 · ' + colorNames[color], id)));
+      antIdInput.value = selectedId;
+    }
+
+    function updateRosterFields() {
+      const counts = { white: 0, red: 0, black: 0 };
+      for (const ant of starts) counts[ant.color]++;
+      const capacity = columns * rows;
+      antCountInput.max = capacity;
+      antCountInput.value = starts.length;
+      for (const [color, input] of Object.entries(rosterInputs)) {
+        input.max = capacity - starts.length + counts[color];
+        input.value = counts[color];
+      }
+    }
+
+    function showSetupFeedback(message = '') {
+      setupFeedback.textContent = message;
+      setupFeedback.hidden = !message;
+    }
+
+    function closestFreeCell(target, occupied) {
+      let nearest;
+      let best = Infinity;
+      for (let y = 1; y <= rows; y++) {
+        for (let x = 1; x <= columns; x++) {
+          if (occupied.has(cellKey(x, y))) continue;
+          const distance = distanceSquared(x, y, target);
+          if (distance < best) {
+            nearest = { x, y };
+            best = distance;
+          }
+        }
+      }
+      return nearest;
+    }
+
+    function updateSize() {
+      const nextColumns = readNumber(columnInput, columns);
+      const nextRows = readNumber(rowInput, rows);
+      if (nextColumns * nextRows < starts.length) {
+        columnInput.value = columns;
+        rowInput.value = rows;
+        showSetupFeedback('当前有 ' + starts.length + ' 只蚂蚁，盘面至少需要同样数量的格子。');
+        return;
+      }
+      columns = nextColumns;
+      rows = nextRows;
+      columnInput.value = columns;
+      rowInput.value = rows;
+      xInput.max = columns;
+      yInput.max = rows;
+      const occupied = new Set(starts.filter(start => start.x <= columns && start.y <= rows).map(start => cellKey(start.x, start.y)));
+      let moved = 0;
+      for (let index = 0; index < starts.length; index++) {
+        const start = starts[index];
+        if (start.x <= columns && start.y <= rows) continue;
+        const target = { x: Math.min(start.x, columns), y: Math.min(start.y, rows) };
+        Object.assign(start, closestFreeCell(target, occupied));
+        occupied.add(cellKey(start.x, start.y));
+        Object.assign(ants[index], start);
+        moved++;
+      }
+      showSetupFeedback(moved ? '有 ' + moved + ' 只蚂蚁的起点已移入新盘面。' : '');
+      updateRosterFields();
+      rebuildTerritories();
+      rebuildInitialTiles();
+      cursor = null;
+      resize();
+    }
+
+    function addAnts(amount, color) {
+      const candidates = Array.from({ length: columns * rows }, (_, index) => ({
+        x: index % columns + 1, y: Math.floor(index / columns) + 1, nearest: Infinity
+      }));
+      const accountFor = start => {
+        for (const cell of candidates) cell.nearest = Math.min(cell.nearest, distanceSquared(cell.x, cell.y, start));
+      };
+      for (const start of starts) accountFor(start);
+      const middle = (rows + 1) / 2;
+      const reference = { x: Math.min(8, columns), y: Math.ceil(middle) };
+      const occupiedIds = new Set(starts.map(start => start.id));
+      let id = 0;
+      for (let added = 0; added < amount; added++) {
+        let chosen;
+        let best = -Infinity;
+        for (const cell of candidates) {
+          if (cell.nearest === 0) continue;
+          const boundaryPenalty = rows > 2 && (cell.y === 1 || cell.y === rows) ? rows ** 2 : 0;
+          const score = starts.length
+            ? cell.nearest - boundaryPenalty - Math.abs(cell.y - middle) * .001
+            : -distanceSquared(cell.x, cell.y, reference);
+          if (score > best) {
+            chosen = cell;
+            best = score;
+          }
+        }
+        do { id++; } while (occupiedIds.has(id));
+        const start = { id, x: chosen.x, y: chosen.y, direction: 0, color, limit: null };
+        starts.push(start);
+        accountFor(start);
+      }
+      return id;
+    }
+
+    function refreshRoster(focusId = selectedId) {
+      starts.sort((a, b) => a.id - b.id);
+      selectedId = starts.some(start => start.id === focusId) ? focusId : starts.at(-1)?.id ?? 0;
+      if (!selectedId && selectedTool === 'ant') selectedTool = 'black';
+      autoArrangeTiles = starts.length > 0;
+      cursor = null;
+      updateRosterFields();
+      updateBudgets();
+      rebuildTerritories();
+      rebuildInitialTiles();
+      selectOptions();
+      locateAnt();
+    }
+
+    function updateAntCount() {
+      const previousCount = starts.length;
+      const entered = antCountInput.valueAsNumber;
+      const count = readNumber(antCountInput, starts.length);
+      antCountInput.value = count;
+      showSetupFeedback(entered > Number(antCountInput.max) ? '当前盘面最多可放 ' + antCountInput.max + ' 只蚂蚁。' : '');
+      if (count === previousCount) return;
+      if (count < previousCount) {
+        starts.length = count;
+        refreshRoster();
+      } else {
+        refreshRoster(addAnts(count - previousCount, 'black'));
+      }
+    }
+
+    function updateColorCount(color, input) {
+      const current = starts.filter(start => start.color === color).length;
+      const count = readNumber(input, current);
+      const capped = input.valueAsNumber > Number(input.max);
+      input.value = count;
+      showSetupFeedback(capped ? '盘面最多可放 ' + (columns * rows) + ' 只蚂蚁，' + colorNames[color] + '蚂蚁已设为 ' + count + ' 只。' : '');
+      if (count > current) {
+        refreshRoster(addAnts(count - current, color));
+      } else if (count < current) {
+        let remove = current - count;
+        for (let index = starts.length - 1; remove > 0; index--) {
+          if (starts[index].color !== color) continue;
+          starts.splice(index, 1);
+          remove--;
+        }
+        refreshRoster();
+      }
+    }
+
+    function locateAnt() {
+      const ant = selectedAnt();
+      if (!ant) {
+        render();
+        return;
+      }
+      followSelected = true;
+      showColumn(ant.x, true);
+      if (mode === 'ring') {
+        autoSpin.checked = false;
+        setRingAngle((8 - ant.x) * 360 / columns);
+      }
+      render();
+    }
+
+    function updateCoordinate(input, axis) {
+      const start = selectedStart();
+      const point = { x: start.x, y: start.y };
+      point[axis] = readNumber(input, start[axis]);
+      const moved = placeStart(point);
+      input.value = start[axis];
+      if (moved) locateAnt();
+      else render();
+    }
+
+    function placeStart(point) {
+      const collision = starts.find(start => start.x === point.x && start.y === point.y && start.id !== selectedId);
+      if (collision) {
+        showSetupFeedback('这个起点已由 ' + formatId(collision.id) + ' 号占用。');
+        return false;
+      }
+      showSetupFeedback();
+      const start = selectedStart();
+      if (start.x !== point.x || start.y !== point.y) {
+        Object.assign(start, point);
+        Object.assign(selectedAnt(), point);
+        rebuildTerritories();
+        rebuildInitialTiles();
+      }
+      return true;
+    }
+
+    function browse(column) {
+      followSelected = false;
+      leftColumn = clamp(column, 1, columns - visibleColumns + 1);
+      cursor = null;
+      render();
+    }
+
+    columnInput.addEventListener('change', updateSize);
+    rowInput.addEventListener('change', updateSize);
+    antCountInput.addEventListener('change', updateAntCount);
+    for (const [color, input] of Object.entries(rosterInputs)) {
+      input.addEventListener('change', () => updateColorCount(color, input));
+    }
+    xInput.addEventListener('change', () => updateCoordinate(xInput, 'x'));
+    yInput.addEventListener('change', () => updateCoordinate(yInput, 'y'));
+    antIdInput.addEventListener('change', () => {
+      selectedId = Number(antIdInput.value);
+      cursor = null;
+      showSetupFeedback();
+      locateAnt();
+    });
+    function scrollToBoard() {
+      if (mobile.matches) viewBar.scrollIntoView({ block: 'start' });
+    }
+
+    locateButton.addEventListener('click', () => {
+      locateAnt();
+      scrollToBoard();
+    });
+    viewStart.addEventListener('input', () => browse(viewStart.valueAsNumber));
+    viewPrev.addEventListener('click', () => browse(leftColumn - visibleColumns));
+    viewNext.addEventListener('click', () => browse(leftColumn + visibleColumns));
+    for (const input of [columnInput, rowInput, antCountInput, ...Object.values(rosterInputs), xInput, yInput, personalLimitInput, repeatDelayInput, ...groupInputs]) {
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') input.blur();
+      });
+    }
+
+    function updateBudgets() {
+      ants = newRun();
+      stepLimit = ants.reduce((maximum, ant) => Math.max(maximum, ant.budget), 0);
+    }
+
+    colorInput.addEventListener('change', () => {
+      selectedStart().color = colorInput.value;
+      updateRosterFields();
+      updateBudgets();
+      selectOptions();
+      render();
+    });
+    personalLimitInput.addEventListener('change', () => {
+      const start = selectedStart();
+      start.limit = personalLimitInput.value === '' ? null : readNumber(personalLimitInput, start.limit);
+      personalLimitInput.value = start.limit ?? '';
+      updateBudgets();
+      render();
+    });
+    for (const input of groupInputs) {
+      input.addEventListener('change', () => {
+        const color = input.id.split('-')[0];
+        groupLimits[color] = readNumber(input, groupLimits[color]);
+        input.value = groupLimits[color];
+        updateBudgets();
+        render();
+      });
+    }
+
+    playButton.addEventListener('click', () => {
+      if (!stepLimit) return;
+      if (running || repeatTimer !== null) {
+        stop();
+        render();
+      } else {
+        startPlayback();
+      }
+    });
+    repeatToggle.addEventListener('click', () => {
+      repeatEnabled = !repeatEnabled;
+      if (!repeatEnabled) cancelRepeat();
+      render();
+    });
+    repeatDelayInput.addEventListener('change', () => {
+      const value = repeatDelayInput.valueAsNumber;
+      if (Number.isFinite(value)) repeatDelay = clamp(value, Number(repeatDelayInput.min), Number(repeatDelayInput.max));
+      repeatDelayInput.value = repeatDelay;
+      if (repeatTimer !== null) scheduleRepeat();
+      render();
+    });
+    stepButton.addEventListener('click', () => {
+      if (running || steps >= stepLimit) return;
+      advance();
+      render();
+    });
+    resetButton.addEventListener('click', restore);
+
+    const ringCanvas = document.querySelector('#ring-canvas');
+    const ringContext = ringCanvas.getContext('2d');
+    const autoSpin = document.querySelector('#auto-spin');
+    const angleInput = document.querySelector('#spin-angle');
+    const spinSpeed = document.querySelector('#spin-speed');
+    const angleValue = document.querySelector('#angle-value');
+    const speedValue = document.querySelector('#speed-value');
+    const fullTurn = Math.PI * 2;
+    const cameraDistance = 4;
+    const ringColors = Object.fromEntries(['white', 'black', 'blue', 'yellow', 'concealed'].map(color => {
+      const hex = theme[color + '-cell'].slice(1);
+      return [color, [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16))];
+    }));
+    let ringWidth = 0;
+    let ringHeight = 0;
+    let ringAngle = 0;
+    let ringTilt = 21;
+    let tiltCos = Math.cos(ringTilt * Math.PI / 180);
+    let tiltSin = Math.sin(ringTilt * Math.PI / 180);
+    let spinFrame = 0;
+    let spinTime = 0;
+    let gesture = null;
+    let ringCells = [];
+
+    function projectRing(angle, height, scale, radius = 1) {
+      const z = Math.cos(angle) * radius;
+      const perspective = cameraDistance / (cameraDistance - z * tiltCos - height * tiltSin);
+      return {
+        x: ringWidth / 2 + Math.sin(angle) * radius * scale * perspective,
+        y: ringHeight * .46 - (height * tiltCos - z * tiltSin) * scale * perspective
+      };
+    }
+
+    function ringPath(context, points, close = false) {
+      context.moveTo(points[0].x, points[0].y);
+      for (let index = 1; index < points.length; index++) {
+        context.lineTo(points[index].x, points[index].y);
+      }
+      if (close) context.closePath();
+    }
+
+    function drawRing() {
+      if (!ringWidth || mode !== 'ring') return;
+      const ctx = ringContext;
+      const concealed = hideColors.checked;
+      ctx.clearRect(0, 0, ringWidth, ringHeight);
+      ringCells = [];
+      const bodyHeight = clamp(rows * fullTurn / columns, .20, 1.12);
+      const tiltPadding = Math.max(0, tiltSin - .36) * 1.5;
+      const scale = Math.min(ringWidth * .405, ringHeight * .62 / (bodyHeight + .46 + tiltPadding));
+      const top = bodyHeight / 2;
+      const divisionCount = Math.ceil(96 / columns);
+      const segmentCount = columns * divisionCount;
+      const yaw = ringAngle * Math.PI / 180;
+      const startAngle = yaw - fullTurn * 7.5 / columns;
+      const slice = fullTurn / segmentCount;
+      const edges = Array.from({ length: segmentCount + 1 }, (_, index) =>
+        Array.from({ length: rows + 1 }, (_, row) => projectRing(startAngle + index * slice, top - row * bodyHeight / rows, scale)));
+      const segments = Array.from({ length: segmentCount }, (_, index) => ({
+        index, depth: Math.cos(startAngle + (index + .5) * slice)
+      })).sort((a, b) => a.depth - b.depth);
+      const front = segments.filter(segment => segment.depth > 1 / cameraDistance);
+      const back = segments.filter(segment => segment.depth <= 1 / cameraDistance);
+
+      for (const radius of [.78, 1.04, 1.23]) {
+        const floor = Array.from({ length: 97 }, (_, index) => projectRing(index * fullTurn / 96, -top - .20, scale, radius));
+        ctx.beginPath();
+        ringPath(ctx, floor);
+        ctx.strokeStyle = radius === 1.04 ? '#2d5b71' : '#1b394e';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      function drawSegments(list, facing) {
+        for (const { index, depth } of list) {
+          const column = Math.floor(index / divisionCount) + 1;
+          const start = edges[index];
+          const end = edges[index + 1];
+          const light = facing ? .62 + .33 * depth : .24 + .08 * (depth + 1);
+          for (let row = 0; row < rows; row++) {
+            const points = [start[row], end[row], end[row + 1], start[row + 1]];
+            const color = concealed ? 'concealed' : tiles.get(cellKey(column, row + 1)) ?? 'white';
+            ctx.fillStyle = 'rgb(' + ringColors[color].map(value => Math.round(value * light)).join(' ') + ')';
+            ctx.beginPath();
+            ringPath(ctx, points, true);
+            ctx.fill();
+            const owner = owners[row * columns + column - 1];
+            if (!concealed && ants.length > 1 && owner === selectedId) {
+              ctx.fillStyle = facing ? '#5cf0e33d' : '#269c9c35';
+              ctx.fill();
+            }
+            ctx.lineWidth = .7;
+            ctx.strokeStyle = facing ? '#10233985' : '#152b3d';
+            if (divisionCount > 1) {
+              ctx.beginPath();
+              ringPath(ctx, [points[0], points[1]]);
+              if (row === rows - 1) ringPath(ctx, [points[2], points[3]]);
+              if (index % divisionCount === 0) ringPath(ctx, [points[3], points[0]]);
+            }
+            ctx.stroke();
+            if (ants.length > 1) {
+              const leftBorder = index % divisionCount === 0 && ownerAt(column - 1, row + 1) !== owner;
+              const topBorder = row > 0 && ownerAt(column, row) !== owner;
+              if (leftBorder || topBorder) {
+                ctx.beginPath();
+                if (leftBorder) ringPath(ctx, [points[3], points[0]]);
+                if (topBorder) ringPath(ctx, [points[0], points[1]]);
+                ctx.strokeStyle = facing ? '#28857f' : '#225359';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+              }
+            }
+            ringCells.push({ points, x: column, y: row + 1 });
+          }
+        }
+      }
+
+      function drawRails(list, facing) {
+        ctx.save();
+        ctx.lineWidth = facing ? 1.7 : 1;
+        ctx.strokeStyle = facing ? '#83fff1' : '#3a7e91';
+        if (facing) {
+          ctx.shadowBlur = 9;
+          ctx.shadowColor = '#48e5e1';
+        }
+        ctx.beginPath();
+        for (const { index } of list) {
+          ringPath(ctx, [edges[index][0], edges[index + 1][0]]);
+          ringPath(ctx, [edges[index][rows], edges[index + 1][rows]]);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawSegments(back, false);
+      drawRails(back, false);
+      drawSegments(front, true);
+      drawRails(front, true);
+
+      let selectedMarker;
+      for (const { ant, stacked } of groupAnts().values()) {
+        const angle = startAngle + (ant.x - .5) * fullTurn / columns;
+        const depth = Math.cos(angle);
+        if (depth <= 1 / cameraDistance) continue;
+        const height = top - (ant.y - .5) * bodyHeight / rows;
+        const point = projectRing(angle, height, scale);
+        const direction = directions[ant.direction];
+        const tip = projectRing(angle + direction.x * .02, height - direction.y * .02, scale);
+        const rotation = Math.atan2(tip.y - point.y, tip.x - point.x) + Math.PI / 2;
+        const palette = antColors[ant.color];
+        const cellWidth = scale * fullTurn / columns * depth;
+        const cellHeight = scale * bodyHeight / rows;
+        const size = clamp(Math.min(cellHeight * 1.65, cellWidth * 1.9), 10, 28);
+        drawAntSprite(ctx, ant, point.x, point.y, ant.id === selectedId ? Math.max(20, size) : size, rotation);
+        if (ant.id === selectedId) selectedMarker = { point, palette, ant, stacked };
+      }
+      if (selectedMarker) {
+        const { point, palette, ant, stacked } = selectedMarker;
+        const badgeX = point.x + (point.x < ringWidth - 60 ? 22 : -22);
+        const badgeY = point.y - 19;
+        ctx.strokeStyle = theme.green;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(badgeX, badgeY);
+        ctx.stroke();
+        ctx.fillStyle = palette.fill;
+        ctx.fillRect(badgeX - 15, badgeY - 8, 30, 16);
+        ctx.strokeRect(badgeX - 15, badgeY - 8, 30, 16);
+        ctx.fillStyle = palette.text;
+        ctx.font = '700 10px ' + theme.mono;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillText(formatId(ant.id) + (stacked ? '+' : ''), badgeX, badgeY + .5);
+      }
+    }
+
+    function resizeRing() {
+      if (mode !== 'ring') return;
+      const bounds = ringCanvas.getBoundingClientRect();
+      ringWidth = bounds.width;
+      ringHeight = bounds.height;
+      if (!ringWidth || !ringHeight) return;
+      const ratio = window.devicePixelRatio || 1;
+      ringCanvas.width = Math.round(ringWidth * ratio);
+      ringCanvas.height = Math.round(ringHeight * ratio);
+      ringContext.setTransform(ringCanvas.width / ringWidth, 0, 0, ringCanvas.height / ringHeight, 0, 0);
+      drawRing();
+    }
+
+    function setRingAngle(angle) {
+      ringAngle = ((angle % 360) + 360) % 360;
+      const rounded = Math.round(ringAngle) % 360;
+      angleInput.value = rounded;
+      const text = rounded + '°';
+      if (angleValue.value !== text) angleValue.value = text;
+    }
+
+    function setRingTilt(angle) {
+      ringTilt = clamp(angle, 5, 52);
+      const radians = ringTilt * Math.PI / 180;
+      tiltCos = Math.cos(radians);
+      tiltSin = Math.sin(radians);
+    }
+
+    function rotateAutomatically(time) {
+      spinFrame = 0;
+      if (mode !== 'ring' || !autoSpin.checked) {
+        spinTime = 0;
+        return;
+      }
+      if (!gesture && spinTime) {
+        setRingAngle(ringAngle + spinSpeed.valueAsNumber * Math.min(time - spinTime, 100) / 1000);
+      }
+      spinTime = time;
+      drawRing();
+      spinFrame = requestAnimationFrame(rotateAutomatically);
+    }
+
+    function startRotation() {
+      if (mode === 'ring' && autoSpin.checked && !spinFrame) {
+        spinTime = 0;
+        spinFrame = requestAnimationFrame(rotateAutomatically);
+      }
+    }
+
+    function switchView(next) {
+      mode = next;
+      ringView.hidden = mode !== 'ring';
+      flatView.hidden = mode !== 'flat';
+      showRing.setAttribute('aria-pressed', String(mode === 'ring'));
+      showFlat.setAttribute('aria-pressed', String(mode === 'flat'));
+      if (mode === 'ring') {
+        resizeRing();
+        startRotation();
+      }
+      render();
+    }
+
+    function ringPoint(event) {
+      const bounds = ringCanvas.getBoundingClientRect();
+      const x = event.clientX - bounds.left;
+      const y = event.clientY - bounds.top;
+      for (let index = ringCells.length - 1; index >= 0; index--) {
+        const { points, x: column, y: row } = ringCells[index];
+        let positive = false;
+        let negative = false;
+        for (let side = 0; side < points.length; side++) {
+          const a = points[side];
+          const b = points[(side + 1) % points.length];
+          const cross = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+          positive ||= cross > 0;
+          negative ||= cross < 0;
+        }
+        if (positive !== negative) return { x: column, y: row };
+      }
+      return null;
+    }
+
+    showRing.addEventListener('click', () => switchView('ring'));
+    showFlat.addEventListener('click', () => switchView('flat'));
+    autoSpin.addEventListener('change', startRotation);
+    angleInput.addEventListener('input', () => {
+      autoSpin.checked = false;
+      setRingAngle(angleInput.valueAsNumber);
+      drawRing();
+    });
+    spinSpeed.addEventListener('input', () => {
+      speedValue.value = spinSpeed.value + '°/秒';
+    });
+    ringCanvas.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || gesture) return;
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, angle: ringAngle, tilt: ringTilt, moved: false };
+      ringCanvas.setPointerCapture(event.pointerId);
+    });
+    ringCanvas.addEventListener('pointermove', event => {
+      if (gesture?.id !== event.pointerId) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      gesture.moved ||= Math.hypot(dx, dy) > 5;
+      if (!gesture.moved) return;
+      setRingAngle(gesture.angle + dx * 270 / ringWidth);
+      setRingTilt(gesture.tilt + dy * 75 / ringHeight);
+      drawRing();
+    });
+    ringCanvas.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      autoSpin.checked = false;
+      if (event.key === 'ArrowLeft') setRingAngle(ringAngle - 5);
+      if (event.key === 'ArrowRight') setRingAngle(ringAngle + 5);
+      if (event.key === 'ArrowUp') setRingTilt(ringTilt - 4);
+      if (event.key === 'ArrowDown') setRingTilt(ringTilt + 4);
+      drawRing();
+    });
+    ringCanvas.addEventListener('pointerup', event => {
+      if (gesture?.id !== event.pointerId) return;
+      const shouldEdit = !gesture.moved && canEditBoard();
+      gesture = null;
+      if (!shouldEdit) return;
+      const point = ringPoint(event);
+      if (!point) return;
+      applyTool(point);
+      render();
+    });
+    ringCanvas.addEventListener('lostpointercapture', event => {
+      if (gesture?.id === event.pointerId) gesture = null;
+    });
+
+    const antSprites = Object.create(null);
+    const spriteTints = {
+      black: { shadow: [11, 15, 21], highlight: [145, 162, 184] },
+      white: { shadow: [118, 135, 151], highlight: [255, 253, 246] },
+      red: { shadow: [123, 17, 25], highlight: [255, 115, 89] }
+    };
+
+    function prepareAntSprites(source) {
+      for (const [color, tint] of Object.entries(spriteTints)) {
+        const sprite = document.createElement('canvas');
+        sprite.width = source.naturalWidth;
+        sprite.height = source.naturalHeight;
+        const ctx = sprite.getContext('2d');
+        ctx.drawImage(source, 0, 0);
+        const pixels = ctx.getImageData(0, 0, sprite.width, sprite.height);
+        for (let index = 0; index < pixels.data.length; index += 4) {
+          if (!pixels.data[index + 3]) continue;
+          const luminance = (pixels.data[index] * .2126 + pixels.data[index + 1] * .7152 + pixels.data[index + 2] * .0722) / 255;
+          const light = luminance ** .66;
+          for (let channel = 0; channel < 3; channel++) {
+            pixels.data[index + channel] = tint.shadow[channel] + light * (tint.highlight[channel] - tint.shadow[channel]);
+          }
+        }
+        ctx.putImageData(pixels, 0, 0);
+        antSprites[color] = { image: sprite, url: sprite.toDataURL() };
+      }
+      lastStartPreview = '';
+      render();
+    }
+
+    function drawAntSprite(ctx, ant, x, y, height, rotation) {
+      const sprite = antSprites[ant.color];
+      if (!sprite) return;
+      const width = height * sprite.image.width / sprite.image.height;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      if (ant.id === selectedId) {
+        ctx.shadowColor = '#69faeabc';
+        ctx.shadowBlur = 5;
+      }
+      ctx.drawImage(sprite.image, -width / 2, -height / 2, width, height);
+      ctx.restore();
+    }
+
+    const antSource = new Image();
+    antSource.addEventListener('load', () => prepareAntSprites(antSource), { once: true });
+    antSource.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAADACAYAAADMZmunAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAgKADAAQAAAABAAAAwAAAAAAQfVw+AABAAElEQVR4Aey9B3gc1fU3fGe295V21Zt7wQ1jU02R6QZsqugEBwg1kDh0QhIREkJLCCGQQEIPJTj0gLEpFtUUG/cqW1Zvq+29zMz3O2OPWK13pZUtk+T9/vNoNTO3nFvn3nNPZez/rv/rgf/rgf/rgf/rgf+f9oDq+2j3b684rmTutLLS5WvbvMMsj0P69N8ws//vJX/llTrVuJRY+NmWvuj3UXvq3P12XbZgjmXmuNJbTVr+vN6ooag3mPzYZNLU3/3Ic6sHKXSoOkmD5P1fjKL2ym36+VXnnS7EEjdXl1iqdWppeTipfuqGB57+eH82aqjO3uuy6+umaBO2Sc8b473nGo161hwvkYqrxnJ+n9sjRHx3/OHJfzyeA3i+dfpvmwhKvfOpF6XtT3fbNRcWCIL6d5zWfIVep1NZmJ9Zku3MkzBHk5qC8371yJNv5+irfQ7eb1vA0XNPulKjMdyyo3FrX2evW9zW1qtjvEoorRpt4jjVaUfMnGo8Ycr0zxrWrEmhFUrnZTYoVzilozjll5kvn/d9yZsJf7B6Zqal9/6yH7z9x5M43rhY0FjOiCdTbMeObWJn6w4+6GoLd/skfUFx2RGnHzfrlaWfrgplA5QjLO/68DkA5ArOC/B9t/y4PC7p7gjERaayVTzbF4yfF4uFm9tbGlVrvv5EEkRBLCgqv0WwmZ776cKFdhTW/zVkFJwrPCPZf+y1fyCHWQNql/S7264/Mc7p3xO1psO8Prewfdt63tPTqnL1+b7Z6VGfi95rEzjdqIigv30v4OeVZbgTQAE66ESIR/wXq9Xqykg4yDQa3cfvrWl/t7So5Oh42P/X3q6W2LrVK/iW5kZBozfVFRYa//W7ny4cpQDOch9qEgwVnwXkiAbJgwmIw6rH/Tdfd4Ukaf4VDMdrdu5sFNqat6oiAXcPE+K3G4zFx7+3puldlZZfFQ4HmEqlvuSPd14zcURrvRvYcCZA5qBnvvfXLxnx1Qa7Ghnu7Sne/DlFvPnJN22frN1xjc1kOiUS9K/o7mhWNW/fwLhU/DijveTDO6+99MR+AHs+ZHZyrs7OWSeApLj0eAVGetieJe8KSc+bT/pccNjjV16pue+mq+4RktHHe9qbzc2NG1lv2w4pGQ78y2bQz/1oddO9S776KkAA1BrVBzF/Fwt277RzQvSQnEB3RaTXcYik30XnOwGURiudRhDSn/shPoI9zWAvn67m+Jg6GfnVk4sXe/oj8fDvz9Y0VDlrTgiHgj9zdTS3dbc1MZfbN0ZrKvznrxddc2FaWqXMtKCsj0rDh0pP9c1a56xQBwYq+agM5ZlSpD8rOXLW4+H6n1QHnNbFktpyezIl8QFXM+fr6/5IzaQTl3618bzXP/l2824gMozK0sJX+ainQc3zLCHoh5oAVJf0+uSsh1JRuueTKDNNeiHpsFh9fT2vDfe9LPHaur6u1q0pW9mMRx55JD4gUdrLZQvmTgz6fX8WJP74ytETWEFBQYoXY7/+1Z+eujstWa7HzHop6XLWT0mQdicY+aZPLy/fPP1F/eK6yw43mS3PihI/vrVlJ/P2tEY5jv3Gry/5/ZIlS3L20U0/OOtMjcHyWkFxeUyrEk/6af19n/QD3fWQqw25wgdkVw94G/pl0IZbAq3T/HFhQTAaZ7F4ePVfBhl8FMU99dbyrXV1hy/g3ImFrTs23BFxFFXWjJn061/96JwDuGTw2fpnlr43dJX6Uwxat/5UAx+Gk0dJSx2bV+dSUQ9ed1aNP5w8U6XW3eH1eoo6W5tYMBJ+VxDEu9/+fN2XA6uz51tcELaGva6w1qA3ac2aRZIkfcpxnFIXypD+vCeAXSFUX7r2SDvUFpCZUXnfBS7jf1IQZiR83dpI1/YEJwkvZkRnvsqVWbx4RfTVj1b9JRlnx/h9fS82rvmUmbjY+by55O0bfnDOFZmZ/gvelU4ctC+onndcd/FBnqT+I6fd9lBX46qi1h2b2mOx4BUHHjv+zN2DPyQMx/iZ24SI+5PAzrUs7umpXLx48WBjlgkv832P7hsqQbZ4pQMGAHv41p9U46D6Mcf4Ub07N9z/0D+X3ZYxUwekT3uhMmSYdXV1KpNvy08MfOpXAcFsrZ44I65iwqLfPPr0X9LSZ3vsh5Etcj+EKeUp9/Qi5LBfXHfJoSqN8eXO9vZRLNTOdBr+tW0dgVuXfrtj++7ElI6urP25K2rX/5vPOGKssWz0F/bSUYXJSPBnt9z3p0fS49OeFZhpQfIjlZEe11/mYLMpE8ig75JBtSiaEEa1tbYwnF8/zjL46RVIh6VUhsPsFp55f/0fQnH9cfF47L3Wbet0gsg9dttVP7g1PUOWZwVGlqj9EqSUp9zTC5HuvObiBbxa/+/OttZRvZ0tG1yB5GVTyw4+f/fgUz/k6ot0OP3PD7zxeZPL49vp8XjVokZ/+6O/ubaqP3LgA9UnW50oVdbwzAkwWMVyApekej7c23o4vnwW8HV3SCbLNwPrJb8pFcjVAUo8e75h9coTJh++IBaLXNO0eZVXEoV7668873e/OP/wmVngDhU0WJty5c1Vx1zp5fBFp02o+PnlZ/yYU+n+2dK4pbCno+m3dq36qNe/2PT0VU88kUQigtvfzoxnGUb2f5wUDQc+7mzawPxtm8uifZ5Ds6frD00vgwKVPqDwAXGDkYLTM/VDzvagDU84ReDN1wbdPYIqGbzlr68u/yxbOoQpMHNEfxf871WrxM2tvSsnVToa4v6eo8aU2c4wFJSfW+Z0vL9m286u71Lm97Tw5JNHHX7Y7DlTxlSJa7dsH8CVvPTUE2cddeghR0yqLBHWNu50p0HMu77nHTtr7Kiace9bNamLt2/Z2O31eq968+vGR9Y0d8fS4O3146yplY2JoH+OxVFZobMWi+9/9uVrd91112Dw0uuuDDqFpYezfCZAZiEKEBnQn26/vigocC/HUnw5KL9N5RrnNQ2bNgm7M6WnHVBwJtBc75tbXR0nHzqmLxqNnhPmrIaYxE9ylmsX79jRQ1+Ucu0Bu7a2Vr3w4IPVlSXGUw8+aOb9JqvtN32dzZI37F+yvbU7omSke5XTzMf8nlttjpJ7Z44ffeTMCWPZD086ZZu5pkbatGmT0nnpWTKfuWOOOOIxjc54tBjuY7yYuPPp5Zufyky0D+/c6s1tvmMOO9QkqY0n41g45cO3F7d98vXqwbiqSnHKGNC70k/KnWVuAUqm9LsCQLmnx7FIInRVPJaY6O4Fxcrn3lK/eHFid4L+QgZk+O5lqPj+lBF14bvbumPrG3e2gjymO6bMVHllf+R3jVKCZLhTHWzc6q4df49prG+qOM2CYE9L0mg0vq83GDLL5TWcVJBKJT53tzWpjAbTKaDRvPDxxlWvVegjExSgg90vP3ve6ZzOfM621i62ZqenKaZxvDVY+mHEUV376xsM+rf19LQzf8DHgdR+29P1Mh8lX3D9cJChf1LnMwGoAMqgZFLuFM5iId94d9M65u/eKUmC9LIcuOvfgHQZ4UpceqXSkgx8fOSFJQGtXrcoEvRG+7o7mM5kvvEHdfOrB6aSO4rgSVefcfKoDnfwZbOj4pJCe4nIJ2KCUad3hIKhW+KB0OiMfGhDuDjq9y8oKynV6QRBMJusosTpTmnp9C++6YoLpmemT3+/5MQjilV6y90et0sVDniSnEZ3/aOvfdSSnmYfnqmflB9TGQxfpqL+7V2Nq5m3u7ksojKW5QFb6WtK2g9LyUcTIK9B2J1BASYD+u0t185NaYtOtxbVMINW9fCEw2r/pQDOct+j8N1p8ir/hfdWfChI7Pdedy9LxOMVIDXfma2M+ivnG9t6Ov8eT2lm6MF+tophqdCs4yKhYCoe8D3+7pfrvkI+KlP5iUvW7fhIxXGv9ba1cGIyzpm1PCsuKRMYp5mydfvO52656KzKLGWxWbOYRjRa7wtFIlODva2ME1OPvbp85bvZ0uYZptQpa588uXipx6wSruPVhpDeOdbkC2luQadmTZulPGXsBkTtDQ4gA3jugZtMbn/seW84OdYfDKDDyu++5w+PbB0AfYRfxk+f/QULuyf29PVN0Zms0w6cNGb7+q07NqAYuRNAilZvWrfhlymBXVpgd4hmnYYVmnTEcOJ8wVBnIiV8esr5czeffHKxNM0wWTNn5kxN1ZQpUu2UYlN7S2e5xNSTy4sKik1GI0uq1EzNqaRgJFaW5MRRPzxl1ttLv9ykyC7I5c09aO4ZTGP4bVd7KyZObGnMpLq6udmlbIH70vqcg7q6qbtpysQXTlfpjJUcz0//6qjZWz/6YiX1wWAXwcsKM98tID2z/Ozx+s6MRkKHuF09LOB1+xOJ4FCVGKyCQ8XJZRLNvMBetEgSU+vBRNGKnPqeumMPr0BmeXVpXfvZYYFw7GdJgZNUKhWLJ5OsLxBg7d3dfEoUvx1z9NQX9L6QOdpsnKwtiJf2RLr0o22RCXo+VX7swuteLSo0twtiEpTplOTFpA7HYsyg0wudXa6zPt/QdUZaJaX5tbMmiSrd/T1dHXws4t9cYDde3tCwEbSwvK/0Ps3MlPVr3ZWIk5Lx0Ep3dysDu50XReFny+vr9ZkA8D4Y/P7kg00AuVORUrkrmeTKxSLRQzwdTSzhbWe8lHzl4efeblUSpN3zqsTu9Jlp6V35URI5fvFHKzrKnNYLoiHvDndf72iD3fn4wtoD7fT1u9ye64PBkN5oskiReJKl1HpOtJXyYV7f3d7W9Cjv8hzpjyUeizPV25bSyucOnj3pfr3J9lZKY/xn39ZPbg1Fg0+va23fEtcZea3RzJlsVmazWZgkMhaORO+86Yq60aiHNG/muCKHs+KZYDA4Nhr07SiwGs5b/NHaDqWOVNk8rkEGuT+30n657UqoUaN7SYp6E56WTSzU11OzhflKlbi0ezr8zDHsTzbYFtCfKPPhFz++dA6nK3ggxet0kaDnmwNGj1nYsHpTNDMd3gdUPEv8UEHp+fsbtLm5xzVtbNlKj8dzikanP4g32ZxSqJv5AqHbxGhCbTUaJFtRKTd9FuglHOPaO1o7TA77an8s9VBCVB8hMN6uM5hrAsHIQR5vqLDHGy4VONWxUU5tjKVEUzTJSsZOmCzpdXouDoGMUDBAc6AklRLX6Kw7N44bd+Sz3kDg+N6O1mab1VD33pdb1mY0JL3eGVHDes0KZ21jS9uMZ//KDAVlc22lY0yRaLzw469WvZEH5D3g7REwFJA/1C8q9HiCH0Ti4kwPln8NLzzyt3+9d0NGvnS4/QOXlkaJzxaXlmzwx5MPGXe4P5R4qbSiuqas2NnZ2dJaGovGpbLKSq6oZgJzllZJm4DzcWKYhUMhVWdfQLKYTaIeuAHjtYyJCa4HYY4CC/OEkkzDUiorBFjjKUnQmexsVGU1C3u6WcTvZs1d3bzTUbCqtLSko6en93Qs/ZtUetVFX6xpXjN4Lfc6Nr2P6HlAX11z9snTo4L4tdbi0BbaLKJFz1/88wf/mn4Ky6vg4Z4CmJbFzpKE5Myurk4hGPQxFceWD1LSgEqnpVPClUamReX/+N7X21eYdepzOlubGzu7usuLS0slu1nPbd22hTVu3cBWr/qCBbCXt/d42botO1OJRFLodYdYMsVDCMXP9XqijFfrOG8gwiUScRaPx4W2nj7BZLEyFS+ytrYd7JtvvmKtTY2syKiRihyFs3u6uk/v7mhbbbMaT9uPg0+doPRR1g7R8/7GgN/T6Ops4WLRsEpKRe94877LLFkTDxKYCwfIOTBel+tIX8cOJoV6VDopsam01PFhDviDNiBHnuEGc++vblpZXVW+KOxxifFIgLMX2iVzgVMSVFomiiLr6u5ivX0epjMYOabSM4vFwlJYz/VGC+OA6ZstVklvKpB0Wh1T6y04YiZZc8tOJiWBAOp1rGLMJFZQVsXKqmsYsH2pr6djhbHAsGDZ11t3Dreye5Fe6UPl3g/iIbDR1Wr+HyweZIGO7VLA6xnVJRTkYhIp+fYY11wTYI8CCcK9t/54XoQrPC9pKGHYHwPlxbaf1D/ygiy/ppQwjDuVkbWcYcJgjmLn2JJRY7j2tlZ8CAE23qnn/K5u1tbazHp6elg4HGNGLOlWWwFnMJqYTqdlRYV2VlpcJFnNZlbsLGQlRSUcBpxzOB0sEUuwrdsa2Q5QHnUpH5sx1snadm6VIgmBm33EnFjtjMkDxNyGUd8RTTpr5tTHbCbNUklvZYLeaenzRn4JgZE9Bjmj0AHxhAQOCMhI3P963y2XWbA3Ph8Ix6s8nj58OaZVf3p5aTZiTH+e/fxA9eZv/2Gd0xtL/mlbS3ex0eaQ4r5uZpYiXCSWkvr8UWaxF5L4DFdSWsYKCwqZ2WSApLKWafDFWy1mwu6B6dsRbmQCVgbgCCyRTEo4SnJhn4uNcWBliHSysGRicV0BRNrZaF5n6fl6zcavqfzdbcyrD0e6Pz74fHVi9pQJxnhKnB+MJkS0beq6z5dtW/rpN7mO5FTPAR8dNWBAQK5KWszGi4BIzezpahfA7GBCMrEkV9rvIxzHPm7evHkav5i6vdvlmRpPxEWXN8ja/CluQ3eINbW2cj6vmwuHI8xR6JDKy8pZUXGJZMMW4HAWY3nXM4GpieLHklDIUGNS1IweyxwOB9NreS4SDbMYTgCNO1u4b3f6uVZvlIWjMeb2eFk4HrvzF9f/gFjTmDL/2UvgxM9AIscJ1s2FAkEuBtWyR+uvNeeo1R5jrczgHOm/C05EoycIET+TYgFexycDGqNq2Bjnd9D2/QkTgB00uuhgbPNXQ0RONOiNDOdyMKdE1tLtZZGUhH1fzyKRsIRVgBUUOkm+nrMVFuHZIW8Dak4EoUfLioudhCPIe75GZ2IFzhJmt5oYTZYuf0IKp9RSDHBj4RC+FklMJlLFSaa9ua6uVunoPTp231uYH4Sn3vx0M8jwS7QsyXldHWLY3zctlUwOyr9Ih5zXBPjTz685zOWJnhSMJCSzlnE2o/rux/6xdHs6oO/7uQ7LeiQZv06UJINRb5TAvWGQsmXVFaVs1PiJrKiiGoieiUHKlBlx93j7WCqVYhJO9Il4jNkwKeyYCIWYGFqNhlVUVjEhFQe+EMQEKcZqUcbCTM+cFaNYWVU1c9pNjENv6XQ6JnKcEEsmzyi3Fx37fbc7szw0WSorMdXruWQ3FK64ODOp44L6ksx0ud7zmgDhkO+6aDhoQsdxIKC0JCT+r7kApoXvr31Rhjv22otHg/9+bDwUlDCwnM1qZiazlfX6giyIZZ9TaSRHcYVUVloKWoUkJWIRZgFfIB6NMA0wH7CGMfiFTBSSzGQyMafNzHRqNZ7NQIp4VlJSyiqB+TOcJvqCMebyx5jeYIJ6o4YRrQH4kKGgoOxUtHdfvv4R6aPfv/DpJonXv85jhcMYSfFIuO6FB29E5Ye+hpwAr9x/bamQiB8fDnilRNTPBCH+1mOLG4ZD8x66FnuRQuK0J3V0+4q/XLtD9Hn9hMlyBXYbV+gsZVZHmWQrKMaAGYhMzfR6LY5/NowUR0s4tgItU6nBK4hHmbXAQVsDjn7NoP3HmQ5Hv5QgIC7GyjF5xoydwPQWJyutHMXZ7QXYAAS2s7WLW7dpB+vzhubed98twz57pzV3XyZPGhjGDGr2shQPJMK+bikVCztCodgJAxLkeBlyAnT1+mpD/mBJLBJherUq5LCan8gBKzN4xBqXAViqv/56684Oz492tvUyS0Ex5ygbLRkMBqmsvIIRtm8FJq8DkkezAhg9SMRBTg2sPxQKy7QBEyZDBM8et4eBoSUjgGqNnhmAB0TDYUzyFH4CtgY1pHlVrLjAzBU7nTgpmJmjoJCbPn0msxjNYlNL57htG7uvzajff+RVqpy5gmfiFxGfm/f39bCY331kPhUZcgKohcTsZMjLcckIp9eo/3XP88tyHTHyKW9E0nSFA3WixGaMHlUjjhk7ls099jhmxnkeZ2AphiU+mYxxFqMWA6uT4kkB+3oEpOCA/FWDGsi2bt3MXH19FM98Pj/zeT2QsvEDYYywXlcf8ic4EwhHcXADCWcgugHPc5JOp2fgEbCjjp7LlWKi8QgEknlN/aJFhSPSsH0A8gSETnGyeVzHpbAQeBiEU8ahO4Yc3yETiCGXQRX1MLNG8BTaDPfsQx1HLGskEjtFg/0ahBvJDo4diDucFl84x/EQyNHRXg2sPUnsUhD7NDJyGAHZWqfVskg0Kn/dIPuyluYm1tPVxlrbWrmmJmjsBMEzCGMi4LhHtACIYLFAKAK2siivHLSkadQcjsBYIXD8wAQQcfys7vS7Z4xY4wYCIhxB+Q2MyfJ2wJii1y1a6XNtIshUca9h1apVQzL7hlQNUwuB7iKLxGJ6x52/ePGTxizlfq9BOP7pN65ePS4ai4KYo2Uhn09au3olB44dzvU8zgIi9ukUSQ1hsFTyru/xelkSSGBKUjEckZiWJgl+iaTIhUJuTAw18/oDrKOjDQOdwulALdGKodfg+wDNIw49Jw70YzpFrFu3AdtLCyZKiLiEQDwNXCqZGo9OWL6fO4ImQvq1xxZ7wyNL4jcvmHKbng8tM/D+nlmzZpEAy6DXkBPAaNM/pdLZV9z8ly8/GBTS9xQJ6WAdfuYgOj+ZEjifP8S6OtvB0bMCu9PQUs3FEykZsYtjktDgqoHkxeIpDHA7s1uMMvXPZDQwt9eHPd3OQNmUiGlkx5HQ7XZzVdhOvJ6YJIJjiEHmbBYdbSFSFJMoIEnMHQgBsTQy7AqYMAkotdrBWhzRK3OwCTgNeLbw9IK5B97a+Plfrj7wRI1GHclQzlHyDpg4Q06ASx9a0YES6DfcK71Aeh5Q8HCBKekrIhWxjWxVyOv3Mcnrk3DkA2xw87kkiyVFyQTMX4I6NS3RKhQJ+XwZuUsmEkD4ovjSg/JRDoqaOA7ymERmBo0mrqikHHt/UqqurIR0swtpw1wYcgB0cgC1EatAghOBeMQSUeZD2TqcGNS8BKqhE3C0PUr99tNd6buhJoGc7pq/rvk833oMiQPkCyhLOqXSykSgu/KcJXl+QTc8ckMcVkc2gughs3qjQPq0apU8UMQIwZgyKZUEO1cFLB9kWwx6GPs+yLj4IHiOlv2Az4flHBJDqbjU1t4Bur/AQuGIhAHnXG43WMVurBgx+TioAkBMJ4axlwlBahCNoPgqbwGxGDS8wTKwOCwjjRgrfUedojzva/8RHAVWf2fvzwnQX0jGwz5PApvN/BYYOSJh6UT4wIizMMjAKnyRUSz/tM8nsPwT9peMJ0C4iXBQx2YYMPrKwQ4WQNN3s2gsAakfnBZANKLTA8kEwF4B0mCAQxEJCp3IJzA/uIm03KtwIqCTAh03KL1areGKiovW2u2RnRltHKnX9AFLH8D08MyyhurfAfFDbgGZ0NPf62uZuqDy4ENueP6bFehrpVIDCkhPv/tZSZclKr+gUWX2dZI4JtTe2WnhVaJoNOiA2KlZFNi7Tg8CD/Zqq2mXnKSAQYuHwhINFrB2jF2ScAJOp9FKwVAIdQVWj/WDao8jn6RWqSAcgjQ0mcAQSoqESEtY5jlZyJSohhRCVjvGjq5hoypKNtXXPz0i6l8Zrc/VTwPCH7yg1tmt9kQffH5dGPmp7yk+cwyUPJnh/ezMjLIHf7399CkH/OHc6fOLq+e8KsaTE9IGnzJSYYP9qBLKj9IP66qrY6qmpu09QL7bpx4wlquuLAOVz0pfI0i9GqwCdBpUYcnHKQBYvARcgGHJFkHcIQxfDUmfUChEyCLo+2AHR6OcAOyeqowPm+6YLCqcMNQsEhdk5rrFAOQSE5yohzRZVDgLFjnsDCZcgAOIbfNnzTIOqxEjmFiljhVVRrnbHp81SyM3IjtsZeCVcelPtVdbgCqVkIRU8kKVpWhB0lo5th9afg9KJeg+7KsgNksXjXRDkEO/pajAyiCmBcQsgT0aX2gCKBuaGseybzZowbsB2wZLtxGrg4iVgCZBKAKaPmQCkxh0esYUQR5UBfEgAOHUgKMj3k3gJMaA6EnAEzBJJA9OG5FIVKKfhELo+Ac4UZwAPgpaLPtVFyBHJ8mDmkhqpvAFFbf6Rgsv3nTyaOICZhts6mslfAC4fCfAgMy/eadxc2+MX7R6a2NjSFL/5OeXLZg9AOrQLwPgDZ38uxRe/Zj44qUbvSqe/4IUOFLQAjHpNBI0MyQ1PtN4OChZDGrI+/llWgBxyLAiAG8T5P2fTgPEACISLyYB0ELGICzI/Nj7MallqiGdIHo9ICIhUgD2h6yQIDLLJOIih40ZDVrJaCIdQ66to2nHztraBpIL2Os2fde6YcGQ7rzinNqozvLYzra2qKDSvJtiOpLOyqyHMvhZP7ghKUVplRvw+EWjKzRrbOGKUCR8kV6jmnP+0eO3vPvNjpYBiXK/UCXTf7lTZsScu2kTV3XidKPJZAA+rzvd7fYYQ+GYlMTgEaYOngCnUePbx5KA452MuRMiRwgeCDn4eDm6cxhkjlb8BAZfPjJCkYQGOwGCD0gJNBnwhWu5BIkJYXUIReKApWJarYbKADfRwpcX299evrr55Zde6vreBUPuv/zoyxIi/3ifu49PxEPn3f/2+le/3N7nQ3dlHeiMbux/HWwCZM6k/kzKw6omd+e0KrPKoFFfzGmtJx43c/yyj1Y39irxOe7Z4GYLy5q9AaHroBpePlbdY9Y4DgdWPwlbgBiDMCft4UT3j0QTHFYGGmR87YKMHMqnAFAH4yAI0bGPUAXaKhAu0ckAaSWc9WlWgqWaAI4AjTLE0aqQggEjMwhHhD8k8Uxnv6ryshgEY+5p7g40dnV9vxPgl5eeeBHH657xdrWEvaHwRU8vb3w/a2flETjYFpDXTDrq4AMe8fb1fOILhCuiourp646rcAxRLsFN/w2RfI9ouV4FTXpJr2Z/M5nNMZNRz+sJaZMZQTgGioIUwl4di8UkfyCIXxj7eJzk+WR2L/YEnPNB4oWxPlATMdggGQEVUGOroMEnfgH4AZAhiGGbSEo4PoAnEGJQO2MkdzC6upx3FNpeaA288Tbo7Yqdgrz6a4/WfLcSZonaM+j2cw8/Q6M1PdEGqmYklfz5Pz6WBz/vDygT4mATIDNt1vfL738rWDlu/AXdPR0vd7bsmD1hyqGv3XLxyfvFrGl6BVIVer2nteOLApvlj0AEeYNOx5kh1Qu6PDF1OJnyh2MhrQz0WQNnwL6vxn6PlYI2dcxBHTZ54u/LHD/EYSLJSzylTUEqNBKLcYRDEMJIaaw4DXC8RqXRmjuSyeBf4vE5hP1T5+/t4Kc3acjnP/7krBu1avXTWzeuDRuNqsseX7b1qd3lU969mgSUaUQacNmCiRZLUvVGcdWkY6Fr92Gkd/PZ9y1e5aeaDXGlV3xYHUlWxQqYt0JjMP+uzxe8sLmlXfIHgwJWIxo4MHsEYghxYOeCAgiWHj7zKJFwsd/TdkHbhBYMJVoFsNZLRqiUaZAWR0oViExiIgnZJ6wKajUnFULYBNJFfE1VWdhhs176wF//8SraNSJ9lw+cmy+oPVlnsL0V9/eKqWTgjIfe2vjeIP2ad70GwwEy4RPQ9MEaEL96qzsxrdL2UWtXVw2O4/OqS0qOOnBMWeunG5p3Dki450tOmHsmHRDCnXvuJvb7x5p8p86ZtizJ6Zwg007XQcAP+zmvxmcMSWbeajaKWq3aD6xQHwRZGE2QwCjhjJD8oZMAMYrwAdN+TzQECIOak1aLoQcIoAXLvQrIJucssPM1UDerrq5oNOs112zd/HnDgYeemIT5mO8D+eMevOLY30Gq7VeNO5u90Xj0iseXbn6HGrL7h1ve1x59vUdA3qD2TEiwpOvnjdPpNKYPCiunHgkM+mu/59Pahxa3U8/nupQ6DOvrTwPWn//KS84+FHyA0/u8vimg5iWEVGItrJZ8DCWQ8Nam1qUdXb0OogwVFxYwZ5FT1hPo7e2TPD4v5/Z4IEeoUo0ZXf2RSa8+H6v+dAiAHs5r1dUFFlMC4mbfRnp733ri7Ya+3WXL7U2rx355vOO8o843O8pf8ve2ojmhY3//1vpPRrIgpfNGEiYMLM06CEvLC9OnT5+UiPgW3vTo68+OaAHDBFZfv1C/9LXP1/S6PBMh9iUUFBUBk+dlLiHx+HEUlPpcPcAf4qry8pL3P/5q/YnDLGI4yfOeOLf/4BBwuWu+gjHtKper46an39/4Z5myNZzShki7XyYAlXnZ3NETx1SWv1NaUmYFbf4fRU7TbefW9xuQGqJaexXd35b6esatWzGrxCQlA88vWxeuO3XugrUbNv2ry+UjtqGELQHIHsS7QT0kyiFRABPADSBizk0aVxOcNuWAU5995a3PzzxxerFRZYglzF+FFy/uVwLZ25WKGpX34N9/1Sknm9XCXdDCnr61teO6vy3bRAjfiF+5TgH9nbm3JT75UdM2SM9vb2p3F/lF66ItHdHL9hZWnvnkgalHJ2MCiHo1b4C+/0GXnjv/bLcv8nBCgB6wTge5Pg3Yx9j3gdWTYgiQPZwYwPxBGKSEpGg8ZfP4gv+47IIzzuaZppCDOw8MvlBbW0v40r4MPjUjr/z3X1tX2hcUH233Mlhg6YoceED5Csq8P65cEyBXRfOeGLRUhTjjqz3QzI3GgGVzulvvub6uaH80Ig2mtPGkw+2XnHiiaX1rj9dRWDxfq9a8gKEfNWH8eGn2rNncwbNnsUmTp0B6uIIrKyvniouKpXHjxrPJkych/ADoEjpTMDQxCrjEk3aL9YJwKp5YWFdbOs1gGA7CnFal4T9CJP0WvcE6xhuOM5+g+YrZC9ryhJL3+Cjw8m0UAR428OMnHbohIATGx8L+qXabww4h1eRHKzd8pBS+P+7FVeOSRabIAaOqRh0q8MZf7WzrMYGEK0AtnCsosLGxY6q4CRMmAQks5SBQKlXVjGJV0Pwxm/SczWYjzR+S/IH4V9RgshXNMhm0gYjPt/mppR97Fi6s1a9Z0zyknN2+tOsXl54wh6lND3k9Hm0kFtxqczgvvPNPbw9FXVWKHPY45TsB0gtQnoe8k8XQE44evSwWSs1MJFPjzBb7zIMn13x6xZlHBN5sWKPw0Ic9sbIUzBGbeOzY+YampiY2a8bEcqw6L3X1BeygBgrE3iVqHkj9nNlsBe0HNACQiWHoArKDdBQkcQ8IluEoKFMJgQ+kEjFQANV6td50kNFsfXN6lRl2RqT4pk3tREUaiTpTM2Q4r4Cecdq5s8ePLzHZNabip2H8qqYPZk0h9Vz38CsNWyhhHtde1SlXJgrPtQ3kUZeBSa459ciCUCzw4vjRo08uLy1o9XmD/qTGtBhHrCdvvf+pzt2plbrsTbly3ssuW2AWA+EDtTrrXe1drrnhWCLFQ8CD5yBCDgaOGcqetNcTc4j0CHQqiQUiCZlLSM0lDaEwJH4Cfj94BiRQqmFWq10FuYE1nCp4Tqgv6DFXRENPPNFP/h3Y0OG9yX0My+ITYY2iHgLmJ9r1mhAEWqsbYaiKk9QXPrlkRT6mYKnUvR6v4a4A2ZpIhcsDkC2SwlY2tsZOPWrqew6j6tROd3R8hz9V4osKc+E/8ISzTztu2dKGL8l486AwcsHeHQ7Er5576KHH48ccMfu8SEy80hMICaD3AyYJiEIQRK2VlUVJvw8q4aAO6mWdQPriS6A6TiLkEWgFkVWRBI6GRBgKQ3sIpGaJ12jL7WZbn3dd0/Ln31s7YlvArxf96Bh/KPyqJ5Q6MgBhpmg8aTdwEY+R507/4xuf0+DvS58M0WW7onMhgXllHk6iCTOrBHcoyW9rd7FefyjlDYRSbT3e6V2u4F/vuOKCEsCiL39vvv7+atx45QXOZEp9scsbABcQRDpAgwi5PJgkEII/wvS58dAerqkZzSWx1MNPkaxOZoeOoE4Pjh+EPomDmMLRkIxGkGKIHwojgVD8rJkLavdFD7C/nvRw63WXHt3j8b/oDUZrIGKUgrEisbm7T+z0xPiiIpPiQ2iw/hiRyTESE0Cp5KAV+rapJxpKsWar1QiSKyRv9OCrG40pt9d7QlhkMG2yT7NdwgoADj83B6v+VEj8irTnE5GHdANIEoiWc5LvSmBph3El8PsTqIfEzFYrJgoYQ1oNZ7PbsQqEZNkB4hXgJCNPngRMjKq1+hl9nuA8ojFg/AZt64CRHvgi57v9ygsm+X2BpwOReLnOUgxFoxTn6usiuRVe0Gi3dXWHXAOzZX1T+j1rZL6BIzEBqKwhK/MItFb0OuPdQLN8UO1ShULQ6IWFLhjlFHHuXnjj5ReclW+ls6XDOV0N277HR+MxPg5drjhx/SSRI+0h4vfTV01WQWhidHZ2Mj80isAYkmhCOJxFsB9kB55gQh4I/8mzUYKVEIiGYxLRZAGLmNPqjLOJxpBPe7PUkQZfIlM7Ln/kkb5AbIzdUZ4izeVgwAs9hKAKyKpLbzbf8LvFn+YzAbIUMfygkZoAVPJQk4D73VOvrwDf/haz2QSLrAnO5+5mJosdQt0qYzieevC2qxeOGn4TGKPjWUUhK8WATib9PlLapK+aSLwkwSPL9mPgaQ/QQAuYjDxAkokLBvycFyZfsN9zRBWE9jBHyKIsKoTmYHIAgeSIxcwFgrAOwqsOX/SD0yqunzdPN8x69q8YzV2+W3yRxPFVNePloyks3GFFcqusVmu00Gq9/uGn3yRj1t/bNZITIJ9Kc8WC9VkIaT4Biqwq6PeyEGTxxk6cJkgawyh/OPjr3UD6OywPoNzTzzTENaTHkRKKSUYQD2AFJ4D4gZaHFhoxqCTfR7ICeq1G8kGjqLWlRVYg9fs83HbYFSQBEUIAiVVM8yeJYyDIxWR8QgphWyAFFDwXiFpLynHooYoQSGb1Bqu3dNX5px3nDsRunDx9tuQAM2r9+pXM6+5WQU0tbDHqb9/aHSIW8/d67esEoAYrP6r4oB2AeIkcSlQ7zTebjcZHII2hioQ8MDbtYtU1Y0VJZTzvh2effBKlGwIWouVLLu/cOjjp0KmSKJ2ngSKxb4j440s3ylo8tIwT9m+BVTBa3hXxMI/XDY2gsNS8c4fUCq41ToxIZ+SIXYw0YBRAYBQiYZAnxFZB5mPC2gK7GnWr3138Hrdcq6B0dd2xFe5A4tGxE2cY9FqtuObbr1iYvnyzqaPQZj77mVfff7ihoWHEThh71CxHwEgcAxXQNBi5OkBJI98b5m8TZrWP/lar11RDBWsaWfMCQiCVV43VBAOB2RNG21/fsLUtiMSDTSiCJccbDLNUxQUQF45LF3T3uhwYLInH4k16/WTtg7YBJ8zBGMw2rquzA6TpXZMExiEkqInLsgDIgxMhL5uQiUAzGJMBKz4plULiW5YaknijQe9xGizP1t+/miyk5NVWqmTdlCnasN785AEzDjkKr8KXXyznIyE3X1RgWVHstP3M/8qyDzYNAx7BHKlrJCdA/nVqYNKaxubwSYdNfBfC3F2hUGCO3+81wJBjqqxqdLG/z1NdULLt9ebmfg5cLtjyBIBQpnDpybMD2zp850IWoBL7NuT/COcnlW6s1rwahiLNnNcXwAogsj4Yh4BHMuICguwLbiDSQIQMz8QahuoXJgKUQwk3kH+EQMIsO+9wFG49Z8zkPz/b0EDUwCGvPyxaZOALClQ2h/G3NROmXQ5hVGHNys9UqVgoVlZU8JsJVcXXPvjUW5uHMfjU3vTfkHUYKoHcgUMlyjOeYOX9VaTDvGRB7fmQ5P0txDPHlNdMFGGgid+5YeU9RRrvClFX2PPgP5asJOZSep7dz0qZ8v2Eow95paWtq45WedB7OSuIOPBjAxNwsP1LyBxGG3qDsmi4bPIGnkEEiIFDWIxsBnFEAyB7gQw6BlgAoHOskaJADEnYFIWrJo0b9/o7H3486GnlgZsuMbX7UmPDHvdZxpTn9EA4kXCMOfCgKIwTbG/cxIH6uKLIbnkgqC1+i/wkZmnT9xoEvuiIXMpEUu4ENNuAZSuMG3tQ7Ss7Vn30VTAcW9TauP4aMR7mYeLldjFAunva6MWnzf3qp1de+koqGdkaS8V28obO9t3kWCpDHnwC7CxwmHa2tMtBQVDx9AY9Z4FlUBwJpWQ0Aklh6PpB3h9IgDwJgBTIWkVkEIqQP0h7yvYCyVoojGHJSqQ9LhcIQtAHRDyIRiYUSCIE/W2jE4g+Zp3M6U3HgIl02LdN3slAbEcXqOOWYocVCKjAPD07xba+QAgWSn49buaoRx96aPFgElLUlPSrv33pgSP1TMBH4soFp7+j8i3kvJOPOj/scz8w3slVlDkLxEBMxa/c3sPpCkuZ3mSKA0F3YU/fDAnef9oM2jd+9+hzbsDmrrxylrp1i+qN5o6eU/CxC8Al8FWrZdOvwLqgDeyDHaCgLAhSClsA4yZMxMkAKwCW90gkxDXDIrgbJnBpoEtKiiQj5AY6YWXcA8shhRAhM4MdXFFa/MaShi/OVNpy+YUL6ty+8JXQLzgYwqM2P8okvQSrySgWapPSAeVW5nf3cL3+GKexlV/8wgdfv6jk/W+5708cgCZFromRs/0bt7duOPnAihq4oTmMzLb5/GHmT6qkbo9fcrk8PHz/2GDZY2woGlsQDEfPOOygaX1rNm7dMH/+VWzT2lWnwlPINDrqQTpYtgpmgI6fGeLePtgEgIFrWRagvHK0zBgiCqEdVr8stgIG20JQA4ySSpCsKUSHgF6XmyYJRysCPnoIhIvLWzpd79x2zYVQCbQ83N7Z+5um5rZxIBXrPD6/SOLjOEpKMl8Bq00MxprgRRROxWy+ilLHvZ+u25EvW5f6Z6/6L2fH5ogY9gDlgJMtWIE97FXgx2cfdZLb4/+Hv6/X6QmDqqeCEyfY9QUgOpdDswc/3LUQ6y0tciYddsvP31r2+QMzxpT/0BuJPalSa0U3jEOUWvVwG6OVrJDsJbsBRrMFS7xJZvJATBwLBSfBJxCIQLAEplVDWljDQrAWRmxiUhOLYMUI43SgRz4tToZWjbhg7OiJm7p93hf7vP45YVikxtFBFi0nJRIcH+UVhHYIAZZEdNA0qS4r9peXlSz8++sNb9LegWvY/ZGtc0cqbH+uAHtdx683t+6YfeDkbwJxcYEvFDWCMSPCNRth6ui+XVq8ZPkD7xI0dmAhIHXCnJkTQuNKC7q8wchpcPyohfs3NqG6nJEzCF67S5mT1MBIzh+yCUThI0qhfBIA0kgEYMwHGh2y+0MqBCKrKHaQ8SjOQMIkJp37sKnj129ra3ugr897iM8XSEXBbSRD03EwnMgeIVkeS5L6Geql1xvUFRUVodLKqvOfee2Dfw/u5XWvu2qfM/5XTgBq1Zotzc1HHTKzFWjyyZF4XB/F2R6CHBx5AoPcHjp8lzFHeVXAsmtQ88eNLdKerjE5dRo9mKrA3H3BCAtCxasAkj6kEQwJD6yrQBCwvssEIawiRPWjSbELF4AHERwddQaYh3XDfiC2H7PZyI2tqWTTx5TpXT3tp7X3Bksho09rvUxjICPFpINIMLGgQLKcx7ZiV4+pqWqHwenrXnzzwzf3eZT2I4D/lgmgbBfpTeXWbNmxYc7B03YadMZj4LDJTDp7mAASmHMYJghwgNRLpl0NOg0XDQX4iK+bjwgg/qbIUoiJafCDJzHO6SwgMS8uGA7j64fGMC4yCoGvHks/zMZjS5Ev1ALSYDLW7/eFWHVVNVdoM8HQMPQCPV0cfBJgO7ARvwDoI1zTYcmAfWHYIoR9QtCdixwFXFl5mVRZXvZRTUVR3TOvLvs0vUH/jc/ZOn5/1pPKG84eKKe/dP7cKaFE6ueBUHg+sHkzIYdkqYNMuYI6RzT/sJ4lgpq4pyQsmjh/GDYEDRbI+40Ru3rcsBTuZjYYit6lGUSWwcAlxOTBVw//gmAi0nDi3G+UKYfERQQ/AFJEU6dMYu0tO1RRIHMWLUkOa3tVttIdwOwqIW9QCN6CkUTJkTkJhaQ+R2HBZ6Drv+B3dzYs/iAvtbj92dd5wf6+J0BelcpI1D9prrjg5OmRcGpOLJUAz18sBLm3B6v6t7worKq26nzeaGAGr7UcCATyAH9MXADOn0mQeGnztm3MAWvgcZlBpCHjUMQsggEIFXACrCIgFZOxKNomaF2Iw2xcaXEp2R7kuWRos0nL3YsJ06uJpxqfPPLU5h+vXVvgEwMlWAmK41FoiWt1fRA67frzUy8r4m0ZTfjvff1fmADUe/2TIJ+urKs73hYLpNZCFazGbrULvX1usHZ3GYEmTI+EhUgxlI5stIXQ/g9Tc/KWgsVBlgsoLykBUgf3zHr1G+9++N3ZP5/y/5fS7Cs38Ptq67C2DU1cnAFuYwkGWwyCsWOx2kEQsstyfzLWDmsh2Imw/KP52Eo0JAyKYxzZBCJfAeRbiI6aJBsAodDyBXMmjpgo2PfVYfmW878yAfJtD6WTIAZUDYEuPTGFyDuIJOJ4BqSPFhLC/vU479OZn5xHYRGQtwai/JHlUBUYR7QVBAM+TIgYtIWtloqacQrJ/H9lxcy7v/5fmwDQD6hTQdd/Ip3JYdsPxzIRZmQh4Qu/ADS4hPmTuTfa93eNJt7xwINpZNBBGgjIICGIMVDyYC8AEsIJHfAI5bQ0nJUo70HYi4QjNhH/X5sA0hSXCwYd9KVEldNDBhBLvkzhwc6PgdfBOLSTA9LIUlgZwPXDH0zF4W63QisIVMIU5P+IqEMXYBBBRxsKeGsw8iPW6Xsx4JlZRmwiKktbZgH/s+/1kKr54XnzRREWZEGmhQ2gXdo+RqNecjjscAQB509SBSyEu2WcgGwG6g1meBtLQPQ7yEqKi2RyLomWYcyJ0heKpaKdGP0R6/RBOjfbJEsvd6j4QUBnj/pPTAClEekNy167YYYCIHfzJScaIyptFPJlzAsGUCyWBGGHcDhQ62DgMhrn4TCykB0wdSbQvSSzFRazDkgJezvasEVw4BBbiGUsK5OAT0DbSNtrS1ftb2vg1FKlX5RWj3j/KIDT7/+JCbDfGnZXXZ0mpXKBGaddnUrBnwCWci3Yu0UQ+yYyLX3EsDQum4G1WM0IguVg0AYSCVAOISnM84LsTQxkXRk5JDlA+BFfe9G8Q80JczVsBIyoAIcy4Ep/KHcaH4rLjKdwJY0SR2H7dP0nJsA+VXiwzBA4pc3bd/0VZ30IZA+WvBLldrtZNEIJhbiIxK8vhIMIHnaFu3u6YPLNzrrhXDpBXzx8BkKqWPYvMHbMGMRZQTEQExAYf/uFJV/BAudXhC9RxyuDMFhV8o3LBUsJzzXQFD8idfl/Dgl8/PF6Y9QfnZ+IhiEHopaqqipJPRCewwJE/YNPwajsULq1rU0iN/M9vT0yPkCcQQh2wN0sCYXwsg0hOhHEQ7HTyEsZOpwUQkbySh9kGsxsg52eJrNsJY7Cs+XNTJ/1XTneZI38LwnMu3H1i64+ZP3qzYs72jt+BOlfWtNFR1ExhEH7cK4nly/Q8IlEYEU0BfdwcAYFc/ApnPnJpxCZkg3j6KcFL8kOFTGQmeEuvgVukhNHpjhxbu0Rh37x5bfr9kZjJ9fgDta92dqswBkqLlt8zrL+FyZAzsrvjpAbfPM15x8VCIRfj0ZiE6DiJQiQ+g16vZwevHyv18XBWiixbzkS8ybuH60G5EKG6AURUABJDiAKwg8ZnIZjMBaH/IGAVWHchClSOOCvhpTRaScdfciHn3y9ZjhSPdnqTvUdapAy02SmV+KVcLorK4ISlq3sPcL2BgdQClAK3APo3gZcCZv3llkTbDiPq2rKHLG1q5qExxYvJkcIg5UlPffcA6bGlZt+L2jFksqqwtTmDevgRQwnALiVjcIZVBSCOyTiTcoiQah4KcakSSYcVALQBiUZ87dZQAcAX0CHz6Kzo2M3TuAGElkM/nOihldrH1y+fPmpc+fOHVSB45VX6lSbvq2s8bo9U0GU4I1Gc1Qrit5Y1J/0iN6tTzzxNmTPB72ovdTPysCmt1/p/3QASvr0sLyeswEbKqOSJ71SQ+XJGg9BTo1DO20s9DgPAJ/+KHhkmAKFzJJUIm7H1wjdOZOr2FnUAYPNT5n4yCf1j7xA5tD3uH55xZknhETNkmAozvV0d0rNUCggryFwFyONHT+OxwhIPW7IFPZ5OBW2cugOMwMdDcHKxUFAIm8gARIYBbJY4rSzsXBCsXbtBogVhJkTruYtUB2HLSHODLfBFo1w8gMvf/jpHpVAwKP315c27mi+ENpGZ/S4+qaEguECEB1AmSajlJqEzV7gg7/i9aA6bkhFfFsiQmLZUy++05QN1iBhSv8rSfZpHDKBKUBz3bOlH3YF7rjyrLLu3tApSZXuJNDoodItlMsStdiDw1DrIjFtstxN2rykzlUIL99lxUXrnMVFfz1s+sEvnnvVVf0maC86ZuqZYkr8i85iKerxhCQfHD71QAEEamdkAEJVNbo6HEnxOuL4tbS1c2QrOAjaAPkNJNMxxBwiMTMtrIZSWVBZl0rgKtbV3aHye7wixMUlog2AIshKCws5AxcL8DrtD59ZtuYN6iTMH9VPf3TplFAsdgl0Dc7tdbmqe3t7SaxMgtSSSOWApASRA550FDnIL3AFUEknmoORF1qLbPrXC4scf/62Pb4zz2NmtjGQq5Jr0AYLzwUsnzzDHvhaqHAfUiacpuI1D/uirDqlgVw+9t9IUoRErSCRGBftz+QTEO7dSMqGvH/K3sGtFgtfDAOPGIxthRbTxwYtv04tJjUJX+dPUpKmJpoICx3dUDaNCiyWSqogloWv1vmyo6jkVVcg8qyrt1cH6SByJctB/48VOIpgHNqM8uFKDuLghBAS82fM6FGq8tLixVE/hMQ97quCEAs34JOFc2bOWWiXnMVlKkgZt3V4wv80mMyFUPiY6g2Gp/n9fkMAksjEbVaD5wDTNBBahZNqDDyQUdlVHXkupXLtMDyRAm+iosCgskLQREiG/+2NFp9rm7I4Xl8vb3e5+jbf8cqVf49x3RscIG/gaaXJFSflx9qLjzwTBPjqA8aOFVp6fSDKWLm+ji58+UESzpNkzBxfP+TwsQqAQINOww8aumHBB9s98E0wwaTXTLBjRAwg3NRUlsLQbyTV1dHCq9Um3gZJ4CJzaZPNbnts6hzDwx+83jpGYzSkYOlDDwKAZDQbWIHdgS/dzEpLy2XXc+RKKhJWs86uGHwIYPVJJjrf+WzNojOPP7jJbzT+OBUOVMF3sijF3JyY0gkt3aoqtyd4E1EMQ3F4I8MExrFBgGyhLFhC8gZwUwfZRWIvY5Wg/5gZFgy8fNpA2yqd4D1IIUFvLORjSdPMaMBV8lA9a0byfAc5rXsHPA5rfPb1FJBPZXf1Aep49YVnXmQprFiklyK61qb1ktsbZF3uIHPD27UApgz2YQ5fkiytCzNtspl2CFwCjwJbD7xdLMcQwdbAjxeZcYthP09w8O0JsxphmPExuqtHVd1mtjqerxk/4dan/rXso4aGZnHahFEntHf3XhSJRQWwgCHjb4VVELt81Csvr6QBgfX4FBBDKIJGwxz8B2IiqczRxNYnH3rsjU9qZ057yWhQb3RYtUsTYuoQLhW2kNtYCA1hXSdxMhV5JAO/EHXDlkI8BJI8Ipj09ZMACkkZ05JPzifIMBUZpRBiIU7wNPN+Tw+nL5lg5Sxlx9cUmJdv2NGs2CJWRpX6L72f05+VNMp9WINPmfZmBVAKG6wiShq6S6/AhNvHxgt+zuvMv2jr7lUnOjYnIFir9eLsHUhCHw8CGRCxlmCxE+gZegrfDFqy25kDw0TgZPk/cPmAzxnh0Alu4jih16YKewx8vI/jdOsLLY7nHn/n2y93Ffw13ah+MP+uc5KGEH2RoO7JQh7kWxgGGWSmD9S9OL/PLeME4P2zXriUx0SzCh6VAfnjz7zb0I37M/ixy06a8qUQC59uV4tjjczghKMeZ1LiJ4DhbIfCCvkegrgxk+gYQcUF/AAAQABJREFUaYKkEQmYkssZEkEn51SQP1TRaQQm6snjacRo0sXCUW5zz7rVU8bOmDO1oHLUG1eed9KFT/xzKRmIyjWYFJ5v31O1B72GMwGUQtMrlv6cWZA8AJfXnVT4icleD/WY611d7SwZcq8z4dmgVc0JRTRSmdFSCeG8STgFTIFXj1IixpBpFvpqZBcuWFbJLyBs5oGJY/GZ9NoGCHL8bVSJZTWMv/jrn3gLenbodtaSWb5cN6PF0EmaQSANcxXlFTLHj+j+ZCaO5AAlaZdFEJgOZGVlZTIDCemDWCMUO4b9cJ9aunEtXugnX3TcW/oP12h/Uphns1sv8QdCU+C70AhNYrn+hGBSzXZtYxoJzi63gMr4iVGnehtuDJsMqkTgouvv7X7s1zdCJ3Ld/Y7KCRM5vfP5GxZeeMafnnmxcXcx1A7qS7k/08J2P+a8pacfNFHOyIwIAkiX3LG7Hgf/f21drVllKX0MmvWXgP0qBXpbRVjCOOelZStkDFrJvRAKliaxoDqVEGeGY5EjgaiVg4lbDckcIr8Goa/XhMH/FjT9hj8/82q+hhNl8D+5YkHJxk2tX7W0d1bPOmi22N7RznRGK6uuHs0mTpzM9fW5pA3r1+DIGGVORwGsdqxTjR835oU3l316sVK/fO4XwhYilMemA/kvA0l5Cg6Yk3BCIAuU7bBT4ILCuk9n1r3+3OKP9vDDfMH8Wc6wN7lKby6scpRWQ5At8VrtGOGCfTSundcEGM4KkG0mDto3WnvFHVgVL4lG/GLE3QH1C+nrlK3y7d2Z+ifUM8800Ne2bffvnxRfv3ChHq68+V+9/TYU9vKfdJQ37eIe/vtbPefPP+Zh0ID+QEgaGY8qKrURXkEeQiD+JciawQGcRkxGEze6uipmMhifSYOR1+OL73xGtg4/Tk9cD/wfvyF5CC+9varvnGMPXubt676CWJKOotKzvunW/6qubspdixdvJJ+E+Qym0p9UBRqrvD7U4SKBQ1akvr6eP6DIZTrlhPl3+cKpW/vcXtHT0wFluSQIadoHX33n/d37NNUz6yU3pGHNmlTDtm3Ju3YloTA5PGuO3IFyHhge2TS+YvLxvV5/pdfnkdnDIM5wJpMFjqVwDPR6pL6+XtICUlVXlD/395ffeDg3yPxjGnYNQl71nja+RgKZ+nxiTZNkMtCHoyoKqyLlZnHNlINrBXgnyWdAqax80vU3Ym+4gYM2aOPGes5gn3q62xe8kVywu129sLAbgbFetrPIbMpHPTpbAygsW3h/QwZ54JYs2R4wWu3Lgjinw2cwMHfqYFHmApI1UDpiEF5A8VZH0Wf7UFa2agxW7/6+tNlMn6o16kbQEsh4lkyvSIr8VeOmzCp3QcwtG+AsYYOVlSW5zCjNGp4emG/hcroDa66eHI0L93X2ejRdXZ2wuwp6fCLJGUzWJ3e7W8kXXnod9vZZnjjPPfCAqc/jmQ95P0LEIPyxy1RcUVEJKy4uBY7OSN2LSwJDD/gDp+9tYXuRr3/Anlj8gR+T8A1SN1NJcQZVN6G7xzUKnszv+FVt7V6Azi9LPiuAUsnBBk6Ou+7ys2o8Ps8zPT29FTDRmkpFA6DiCSpQzBorbaa/5FelkU+1atvau8HynQ5HUQIQPclgNAEXSMnyAL2uHjoaSmaTmSSIRC8sl/78Z9cfNvK1GBqiQW/5C46nPThNcDHwIXBSFGC78NLlno5rcuROHxN6zvbLkXVX8HBxgJzA6utr1Rqh7N4+j3++2xuAo95dvvtAfVMVO+2//ftby5fnzLwfI86Zd/RNkAn8hT/gF2GYGYdBNdcBS2Eedx+sgmxnvb1d6DYizsBJJOgSwAN0oBIePL7Svnjtlp3DMeWyr63g1jfu9E2fMGoCnFrPDocDEhhIkFaSeJ3BUH36kbMXf/j1mnzqkz4pqE6Z7wPqmc8KoGRIn11KGN3lAkTv6Ms9Xt8VHl9AJANLdJaH9Wt1oc3yPoS06etX8qfn3a/PPzz7xEOjwciv4QgCquWgziVikPjxcjirw9JEEiQb8A0gJEKyg8QGBrkZTqS9gkGvmQEVkVv3a+X2BC6vtBqeewbmb4Iwc8b5gLBCrE0IB4NT+iLRG5FFWY33zJ07hPLk7PvhTIBcRUj337xwfCyZutPj8fPxcEiCOBbYsQneZrGGTQbDfbuPeZR/bxqQq9zBwndNymjkWrvZZADCJ0KZVPYaCp4DKI5xmH4NEqYt0x3dMBtH3EgjbAlZQCCCQQopEnBfdPt1Zw7lBnewOuxV3EtLV6wwGoyvafV6OIWGCBsMW0MrmlzfXnH3DVeN3w1Ubl9aAZnvStSQ/T2cCUDAFID9BZImTjLovTTY11MpJeMC8eHJxh6oX2Sm7fHxh326fHdtlLxK5fbnXTr32MlHJwK981IhiGDAJyCsfDIYmiByrGwbgBxHE9WRHEMTbUC27AFuICyDkySQGA8Einqb+07Yn5XMAptYB5KOlx4FtdNHdYUkEk1IMREJOeIR1+319SThOODqH4vdoco45dXfmcAGQMZLJnCKVwqQ0xY0NcG8po/Xp2CeNQlTKWDiwOq5ymG3riq32+5FhYckhMiARvDfdWfPnWLktC+ZdPqi9rZGtnH1N2o4guIcBRYwa5Jg/ojYoiIY7KRsOYz2/hS2CNCGYLbWw21Y9RVnNJvVkph46IYzj5g6glUbCpQ8aP/88JuVhVbTEwYIKAYhHyGCSmlWwXKJGB5/AKsj4l364A4Yj7QC0scuPX1akqGPgTkzKlCegPdsntcsdpr4kE3yqcqtKm5cuW1blbPwgkcWL9kbIUoCnV55pai87lefNXcOmEqLVby23O1qF8x6LlVq0y0XU0Kwo9vNSVD9SiWi2BRIUUSQVcXhfh5GpSUQ4XiSRfALEZevvX0brH9oSgVJ9/qi8089Ko/Cqc57Xe8M+JJZJz1UXWTcXGQAayruV2kEL8zgJF7bTR4erJxc9cg6lkOtABn1yv7a4pcmtrgCEHbRLztgTNmxlTb+6j+9+r7CzMieafDQrJUdLMtNV18ydeGCEx8K+IPvaHlpssvVLARjMZhpLX7w6uMvOBEY9QvQ9OEjWOJJBEzERNDy4MxBcdQMSWASFu3s9YFgxT1QXu78oYoXYx3NG0XwJca19/nfvuqCs39533315YPUQalzrgEYJOseUdwz737TXVyoumF0heW3DoPUiPnKorxD6VOlrD0yImCwuD3S78sxUJ6F9VfON/Z4wn9x93nLYrz5ssfe+uqTiWPKe+df2CU0NAyvMnvULntA/+wHrVx76tzT5h06a+a9Lc1t97h6uo+GOJY24OkExQ+OoItL75x03A/u/mF9vXDEzImVqM18+DGUZJcy6FGw78G7T8FaKHAAiIqXOJ18iaPoj/9qWPf2kdNHNbp9oQXtPX08LI3pYQlkLkQILzyu9uiyaRMqO1eu25JLOlip375OBPAlzH1PvL1xCWwKr/MGkwsFrdG8cmMjeCV3Ze+Z70KVOnwXkuNpnyYAISRBz+TrYMDxcrC9Vh5zztG/XbLka2HVtq7Ufhp8agY3bhzTXXLOwrPMhqrHYAPo1i1btkxua2nRwFS8GIpGeavNlqiqLF/0zLINf4AUkvxFOK36aVAIOAOOYyS1GJVVwsnOENkH0HIpVgH7/RAh41Ni5I2mdtemdc2ejdMm1riSgnQKfLrAwFREam5ptYJLeYSzpPLCww6ZFZ5Q4Ni4bscO0kZKvzI7P/M9M22ueG79dg/Bls45dG5Xj7/rJFg5PnLu4W+9//X6be3pQDKe0+HRc/p7RlIYQM5IMGSGNAjcrLL5jkAscW/Y560otFueuOdPr36UFr9fHn982fnlM2fU/jocS/1m67bGMdu2bpFIqgdu36EGznDyMJOG753Pvbfyj+kVGFvlgMXJ+CVlNr2uzAGqH2RhyCiUBRzBmmIrBD4tPIQ1IjD5dff2NliWwrW1zb1q1oxJVqwQc+IpSH+q1WJ3d7eEIyRUD6zzSmqqps074Zhvln/yBXEC6aL+owmX2elKv2aGK3myhVOcPHnJ/+Ihk8ptMGw9j9caihacd9BrDQ2bSH0588oFJzNd/zvhAOl7Bj0r70ql+xOnPVCclNBoD/R6fAdiQ/VBiEJm46alGdHHwysrDXcsuuZCo9mxvLW94/qV33yla29rFSBNJBkMOtj9h54/BP6Li50PHTDH+IfMwpd/s32jUceeZVyc8zMLK66ZwGomz2ajJx3IdAVl4FbGOXgOfvW9z9YSW5ouuTONGufderNpJQiIvFYPp9MQKO1ze8RvV30jrV23fgHsCX981203Lnq0vs6MPErfyQDy+KcM2JD54PDirWg47BaSiZPC7dKhecDOK0kuJFCpWDYgctx9tyywwLjCTWG/VwMa+7I/vrJ8QMdly7i3YRfNm2c9/PRT7/EFY89+u3bthKamnfgYRFFPomGw4QobvzDuoFOVVxR/VDO16hf19dk9b5SXFv26K6Jt7XQH+I7uXq6ju4e1dnUzlz+s8onaJlNB4W1AApXBoDv3wpIlgWKH4wanozAAlTKI9pFIFxxQg6EUDgeFLZs3VgDWH1oD5f+64pIzJ6e1kfIrv7RgeWJRHyp9rJSXnmaP58f//VWjTqf+VyTo18O63TWArOTfI22WgPTyBkTnmgBKolyVkzx+fa3X6zsWX79gMOmeJQLG7kzKXYGRs/DdCbI1pD/s9ut/WFQ6puYhKHX8dP2GjWqIWZEMB8QLiGATB90hDAOgKlVpcckXhYX2ywYzxa4vKE8VFlcKBhiEIMlD+A6Q6f84AHK2omr/5bc9mHlshVAP417698cr4ODhDpvFAkXiOI6SpElM2zN8C4GFuH7jJmHT5i0nafWFz9/802sPRERmH2S+K32TK1yJV+5yf+hN5qfgBi8S8HrP+OU1F56oRKbdh4LX369KnlwTQAG0RwZklKRXXlElYokrocShsViMayrLixsUgFnuBEuBp0Snw82MozRy2NWXXzI1mOD/3dbVfRmENUV7oQNylhKsgAcx30hmEGLXMPZXVOTYWlZVcvGTL77bgrwEm1tYW6uvq51ivn7eOB0BXHj2/Eld7uhTIKmOhmMIwWy2QSLICD0DK04DPHkQmPHC3x79/W5NYHb9RYdaL1swx3LDKeO0NAmef7PhUegF3A5uIg9iEgfxdbATYrA8CgMUkDQGT0FoaW2bFQonlt666LpzlXpQ2SNwyf3x7HvffKPT8B8GSQchmrjzJjinGCbsPfo61wQguJR4jwwU8asPnz8NlZgHB8sMTo+erB9a142ypV9Z4aYnuOUn10yEw67nevs8h5jMNsFsssoOHxPxCDDXlBSLwm0PbECVFDkbnYUFdX/+++KdyE+DL9c7XOQSwV8vjdrHzLnywvlPRRLRj3v7XGdEw/6UBud/0HyQkoQ3yV4wz7x9PVKvx32DO9r36Y8XnvGLRNR0IGgFpvXRShnZoklQZyl72GY2/g2iZJgECeaDJFE8GpRI+xh6IJA0cgrdXV3F7Z2uv/302qvO310X3ORLrpfysjd30Inhx0D7Upj8DAZ9R+o9gYV7Ayc9D5EV87mUL1YeuKS7c3bSF1EVmtSekmLrv/MBsDuNMkCDZvnZ1ZfP7Op2vYSleSK8iQndnW1cJNgHLV0vcfGg4h1GlAoGmUvbR1eWXfLEy++uB0CutrZWNcaaNOjMAbU+WWQUKp1nAG+4EVzKUvgJkkDlS/G8lnYMUAMD0CKCozEpyelAAybKINBaOAoJTy8uK59uK6pY6VQLN3Z++mHw3HMPR+SKBKluQYD1BugqaDEYl7o8PtgfR1WAgJIOAMzEskKHU4DWsdXlcv/95muv0Dzw2N+fG6SxefVHev5Su/mDYNDfwsK9NZLeQmTqAWOTnjbL8x7lDUYHUAATnPRndvSM8aeqEr5ZFUW23//6H5+8laWgXEEEZwCstIRy+E3X/GC6Jxh7WaXRT6qsrBYCkNlv3rGJReBpFLr95BJOslkt6sqy0g3Yl38ABZAviR7BWK1qgiWobQVCOLpm1kR/TPhbc3vPFS1tHebOrh6hx+WGOZgUB0cTLADbAJBV5DQ4DIIoyPX5I7D4LXFwXsl63D6aKPiFK43WgnNGjaoxxYKhHalQhXjIUeMk4myecMqRH8T9oQmYM1OJySQLlqIGUCpBcyRWVVUD3wNaUkU7rXbOwYmL5xy9csnXX2c7tqU1P7/Hzza1Ro6fXtzJJeOH6C2FQl3t5MVLvt6eqa2cq4/lDzi9pMEmQHo6epaB3vuT+dXRmPiXWCi01Vha86OGVdsyCSGZ+fJ+v/qS86YGo8lXdQbLxAkTDxD8/j62fdtGWXOI/AOQ7r4Gnh3KS4o+GV016vwnF7+znga/ublWW2ZMmYSE5Cxzlpzh8QYf2d7cNt3j9QheL1zBg9ZPeQlxJjIwIXDkGgZkXvIWJT9jO5FVuUiBgwYSMg0iiD96iGPMqSgrh9sJ3xfMH4mPmdElPvvspvgZx0x/N57iSqEAepCsv4B85HCaXNWRoGkFdAwKCp3qnl53bUCKeVeu2TCUMGze/fRVY9+mA0c9XKY3WC5lxrK+j75e91WWzDReewx4ZrphT4BDpk29MRAInAwBiiW//+enr2YCHOY7VVKeWDddcmaxPy68XOgsnV5RUSX09HSyrZvXsJ7udgyaCqJlSTXUxaVRVRWPj64s/dGfn3+9a9eXXw81r1FCoHkjZy8fOy+a4n7X1NxS4XJ5cVAgNS3ZZzC5feE4uI0tgew/neWLoGjqdDrh38fCyktLSQ6AgyAIWQ/FVMAJASS/AqtRam7toN3mEKejxA6c79Pnpl0SkZY3sJPO2pG48IcT3o161VrgEEfAtSzE+TjIv4Zl1TYsCBxWMEBhqmAoUnvMYQe2fPXt+nXD7J8cye9ih4wvjoajqQt5o23OYZNHf7BifSNEm4Z/DWcCsHuuO84RcLnvj0cjxQaD9tEvt3SuHn6RA3LIs7T+2mvNrkjseZPFNreqerTQ3d3Bmpq2se7OFmz5KR50BlWh3b69xFlw+z+XfHr3l2u2kB4BB3Iza2hYjt9c7pR5x87wh5KPbmncXgnHTUI4moDxR2jh/n/tfQl8XFW9/72z72v2NG26oim0lLZQqEDYVERQ1FbcURRxX58+0CfhqagPEQRBRZ8iIjypKDwoVdYIUkqxpbZN17TN2iyTTGbfZ+77fk9642Q6M5kkLe//+T9uP+nM3HvOuWf5nXN+57d8fxKsgDHLGSaef2ZY/3K/1htt41DzJgvOE4CH1+qRzCAb8dsK+0AaYyAGIRxJXVAZB4kZfIa3tmp4xa4tu7Y+f4YWKx90HV3Z933kk89F/UP0+FkOQqjCKQNGnYxpkAEkXUqurfYqyKsPhSJvu/hNqw+++MqrHaz7pF6YwY/3r1wyMhKLvlOrxJtNumTnC7v7NucVw/LVv7zbx3+dFgGcu/J0uzkX+5icDB+sr3Hf+tT27sDxRU7vDvwIdENdu35iN+vfu2jBwuwIjDR3d+wElzvGjV3nsNl8Lrv9tsULGz//iw1Pth8rXRAOASZWtzzsPe/0+YtTkuWXR3oG3sj9nkKaai8GLgpZAdDhFjbVivgCHGgGjODxj/GF6dxp0BtlBrKGpwh8Dg0KlK8MICVZDFpEG4EZGXgDxhPyj47KNrv1TE9t1ZZQwj/YMrdRt2jZmuxdd92tXPXh3t1vfdPpj2K9NWP5WIJQQQhzk4R0Ej4dgCVprK1hFDIDrHvOO/PUJU9t3bmP/oazuv6ypy9z0RurEiaDZm393CWdmzbvemomBU6LAM5fufw7Gln7tlAi9s7vPLh170xemJdHzIK3tng+4bXK3wI3n6XPfP/goBQc88PXVtK4nPY/LZnf/KFf/empDS/t2E90EEHVIBq5dYkdDuI6kzWdMOrdTf825Au+ZWR0VDBawisXsWBg94GQ75jxWAFgXCnMwbWAiBO+gVYrTdVlWgiTe4ccWSGcnKwzYf8HnwC+HwATRA4Tnr5QHOVwBLNAFlF/5sUf+NUN3/lRAs4a0rFYQPK2PYeDB7oGNr7pzKVPxCIxFxxClwFzQgN6y5lg5m3KhqDPV+wmTfac91yy9r83vfhqOK8vZvR188GRHWcuqWs22ms+e94ZK3c+9/cd+6ZbUMUE8M2PXHJFIqe/FUER92n1mu9tAQVO92WF6ek795ff3f69bCK0AA6ViO4BMKdAQAsTLZ/X5fzK/Wdd/K9vuf2nlM4JYlHzY//W1PSO5b778LPxt7790ncGw6nroaRBZ6fhBQyDDwweEcFg4AuTbyMif2WlBvjjWwAZz9Oew+mQFixcLNc3zpVcwAuoq2/EEm9D0Gi9TJwgbtxM57QZUA6thXLw7TfL2MsVs8m8KDHarZtfL29ffNq56TyPHUGcu/f3DHUNjPzxsYfuO5xNJ1cERn0em15GHJOYbNJmlVTYVw/Esu4XOnqEC7PapmOfk9pZ8Kzoz9ULPfpoSn4/ZNPnnL/U8+jzO6e3KmOVrexCI1q0oW5dJhVuv23DS/HKcpVNBZ5JzukM1j3OqnlS15EubW/PIW0yk9lvsugv/vVj7T+X29owDOLK52ZlnMdzkVUG479dd8WKZCz1rWGf3wg0DiUYgk4AiN8I7UKoF8xqrVjCRTg34PQwTqAbsQAWLlgkLVnyBumM5cukNWevlU49tUVavXolnEWXSAua50pNjXWSF+iiiCkh1VS5GU5WQLxAYijB40mKZbVXL5x7erXV6tODES0cNLZL+dNzf7/PY3W3ggifAB6ALuDr18AXHAxodRbsxlCJnslvZ4kkk29rTOatqfBgjzHa2+gwWvJ1EZMTlvhVEQEQ00fjmPNhvd78+Px5rltKlDWj2wHZnev10z8v4IcB5GboFd7/4J9fLsktc/lv+/Q6a2Ykpbe651wUiKQWA2sgy6ObBZhCiEYuYV8EN6/HTAb2PyQ13BJCOB5Ue+yyE7OfgwsPIaW+oU6av6AZGEQeMHtOac68hQptBHiUczrtkg7h521Wi+xCHkDGw2gE7g7JZCYUjjdEspl149bObWq7OXjqH+/JDzy7ubvWM399PBL8z0Aim/SHI3LG7FGGYvZCnYNaxrQ/b//jtgGHPvN+bF19GlfjdV9atw77WeXXlFvAr+G6Hcxq7kH43fNH/aFvffd3z79YefHlU37969c6x/yJW4aGBr1A2fjsr69r++IV/37rUeQqnFVqQbyvvXfDxuTaM5+0AQD+NkQErUklQgrM0OVIMovJpwEBjO/zCNzI4z1WA6tMy18c50AkepwErFJNXS2OfjgBwBGTrmL0HI4A5AFWwTJk/FIcaCEGMIbMD0YQqwHsB2E1pAPkE4LDAezJvPjcVUs2joS3hrZtG1BXKrWeE580GNnT98XHtz49+qfOwci8rN72Bq3JEtq2q2PTRKJZfvnb/tHepXOccw0W90eshpT3vausTz5epk75r5tyBeg1WJZrs7HLxvr2Hja4bM/nZ57t90wgcQlAohZjfY2lNeYt8vr1qrSMM6koEcDCJ9PWeoHW6rB9IhiJn0roF0TolqIpRAADxpDFrIdsRw/eH/8EuUBtG08LUW8ipUh+hIPLCLzAqDzY3y/39fRQushoojKYTwaKAICIQsERTgS0FQSIE3gA6gvIQALxQ45HQznwGE0mk301glhnhINBmc6Q5bbcDx58sQN6q0cYiAKhzd/O8LNlskz7ESr7+8FDO8K5TOx9fcm6ZZUWUJYAPnXZaW6d0XtLUufR2Eyma26//y8zEjaUqgzsM99CeBhw6WMWhF0rSFe4HwqCuP5z66oNZ9QugHzlPaFwFJFB4U6t0ONXj5mKAPRaLv0aOUFHENwHSKPg+vnJAUXsUOAFh6Xe7iMKIN2UMf+o3N3VLYAhiRqKHQADDqchBScH4FMkQQBcIVhPAzyLeZqIgsGMxIBhlNNcc8PHL6ppu2k9LBDFVZRo1XZpDLp9UCLlELmkORhOn6PePxGfP3lk29acRr42nNHbjFb3T7565bKaSsotSwB1NfVXZ8LD544Ndv31+4+8/UTNftFJbZ/7+BwoYN4KowpI+qTQvCYXEUHLXm2f+4A9FPTnzK4mL5b/N2J25hiombBvBGO0McYv4OAJ/OB22KGdc0lupwVi2RqpaU6d5IK5WDXMwRQElgwEhiXfQLfUdXifdHB/h7xr53apr+eQNDJ8lL4DiCIGXD/A0jByuNMBoRGYSjgNgtnGtgEiiiVgoac1nm72nOKRAmnLVz/05ilVs0a9eRQEkACfAbMS5Sr6U6LB7I/8v7J9UOohVjtl1N6yITDU81dt0r+mqm7RF0qlzb9fkgA+896LliQ0rs/7I8ldcsKPwiY48vz8M/4Oy/wroc0FEQCRO5VJ3Pi+lZCalL6ghYMDf3/qrvueIYrTuwDAaK722pWGGieseQH50uAhZJw0B38elw0yHsj6oToeBj7B4GCv3NNzWOrp65Y6Ow9K23dsl/bs65R2duyTDh06rPQN+qSxcFw6cLhL2nXggPz3V7fJu/fulbv7emUghwGrMCIIosptk5rn1kl1tcArtFpgg6h4zBbz2rbbHwl0J5zpVmgjS7dAAqHqo7lUMkI4GjCVl4Z6apcivbrS8VP9Xq6Yks+orXRoY5/r942+mNK5vnzTJ9737pKJjz1QKXDSi//j6tY62dX4u1Aw2OwfGbnqvvYj+6cqaDrP29quNgUHsu+lObYCjxyLxTAqtd6I/b+tVDFyNFqdRjyA3Kc/3Wod9Y2sGsNejnO5cO7UYGkfC0YwW50gpixlAEDpZNkJOHuGIfI1YM4Cy0sLRQ1cwQgTS+Colje8QVm6bIXs9FQJ4OjOA3ulvfs6YP17BIwgVgGEl0FkYBwrsR3gdKGHmBhYPwJSjpHFEtGAFJESF0Ai+Zt77tlQloDZMI/FGUdIWuiKcGJxwLpFm+VePQE6Varx07l/66bOPVefp/tUNrenffHilp/f8uE3Bas0ur99dByG57iiSAATVxs0a7mX5n9AF/F/RJtNrcqGEo/F23f/YSLBCfoSH85eEoul1mB/pS+hNi7JvTw7lyle4dkfz5VGS1PzSDj1RuAOKFq9RarCYI6AGOobGmUu+ViqCdEqACD9I4MihrDZSOROHeVOVCzBY10HYqmWvNX1wB00EX0M8PFRxQQ+gTyAyWiCpTE0iFhF0jD8iCAIdZZCpliY0kXFZDBICFkvDY6EgDnoXbjY0WJok7Zl26bAAzrrlJWhYWDSRVKJuYSstxm161Cp+9H2Mk2f/qN7n9+362OtC78S69r+K6dR8+2jY6NPtF266Ndtmzr7CksjAUx0fN8L86tx4h3L+n3XOBzpL9r1+o4N4IkKM83mNxDBdRCvnweZvBagkFmqZ3EEVM2qyxbdBtFOWravymaDNeFIlCZi4vyug/AHkG9KLVSwzRDkBADv2o/lPgkpHgBohb6e53jg8wk+ARo/hp6Xdu3eKe3bv5fHREQHM0lADBOEwy3ZxthBaDld3RlhPAvmD16ligkMC6BdASqpSA6LXkmm4qfabN5TULftqDxHcqI/8X3Ste5GKbPh4kQYvqcguDDYTOPq//j6JxqR6LiBmZSx/I+i7zzFoXtYk4m8HWgTXz8Sdfia6nWeYsWQACauoOfIyC83SMLC5+NnJW/FTDhj4uHkLyrJlmzs5OTil8jTcPlK/fCRwPlw1kSnpoAai/h+TtuUW8xD69ZpXpL6DNZM+kKIZ4GggXUjB2/epAHGIiGofY2KYcwkNTY2yIz8CaQPoHSPYqlXFP9YCAoes8Drw5FThI8BkjcIBIARaIEFzCOYSTkSCRHNUWgEzQhKzZUE4w2MQuAJYmBhiyiFEIiqocaB+ANhxW31KDCNs5r1mreihSSAsteGDS1wQfkzdBpZ8hU5qJ/rwvHs5cj0M/xNpy/z31M0395QUuvMxO/98d+GD0mScGLCe4+/JjGBGzb8c7b/8mV/f9Rqeen4LILKebvoi4ukz7+lSIH4mnQysQz2djk4atKoMoHj1eH8REW+y1iJpBrEZQeg80piBo8CERwaOungwQOI+tUnHe3rxdGuS45RIgjBT2NDg5jt9PmjdpA7DL2B4eIljSJk3Kjfh5PAmOwDTK0f3wcH+uD4ocfejz0eUsQEjoTC3AumIBq9EUGmAf6Mk4ZpPNYw7BNS0qDPD2RR2OclMotRPXVSFKm+uAUxx/oseJG9FCgRE5kEBouii75/7cWOUplmeh+qsnjcPefZqfJPWgEKEiu/3tTpK7jHnzMZ+IliANZ9GSxnjAzejmMgtmP9CKJ8l1sBoBKQ5ECXz+6pXZ7pP+izwToIdcgB/39EjmM55eBotSmZyJ8DfX2I91MrrHqo7o3F49j/DRg4PQQ+4OhjtPih4AcAEdm0Av8CIekDigifA/eX+L8aKRVLk5+ANIlQ0ogihqUiDSNYiprDiD5ixpFwcDQIXgBIlpHwyju/9rH6Ucvcwba2tlL9I+5jpemGrQC2kbDsznhRnmZN2NBAp5Ig/lQiYtpS3yf6styXOzd1Jss9V59NWgHUmyfpU2lr+7TNPxa9cNAfEjb5UM7ImP17a96wopyASRkdvVTfH60OjwYzjTij16JrcsB8IXyKmKkxzHL60Q8O+5UD+/ZIezr+AayKtALjTHL/EPcydCy2DDQMKmNhsRODLR9wASDxwX7M4BI0McdzMn4wOkX3Y9+HRAgxAGQoKvFLRtQRhpUBoIQQENFWgDgDCcgD9HaD06EEutodIICyfQpQ6k7YImThjg6JYjiXymQbktnE2rw+zycg9Ts/1e95SWf/tWxlZ1/85BLC/cPnhsLB0xgbIBoJIWILbeqtO9BpVC2z/1Wqz88oe72b0jzjJlLJZoh1jTiLYVJmhJoWxqMgIj0lv1zi5TFw7AcOHAIR7JZ8MC4hkwlRrxxFCBmab9N+LxQYAwVlgTgel3xYwhOQ6gFFTA4EAwI6BlBxHHza9skx2CjwEhJCcK9kJPF2LN8pEYSa6YA/49IarQYSqdTRUW5VZRzDQxqNbgwIRVQuKSBcWCnreRwsvE7KgBe+pGxlCxPP8jeITb8G3DgYayy+UM2aYaMH4wzViKFUg7FySMo6II5L6cQpRg3EteAdkmAhaOQJvQ/UtTANwTZAfP4xDB73fciXsC0AaBpLPwNQELSXoWSxzMsNkAb2Dw2Sqxfne+7JnM0UI+N4BuMgGIdYEVoGe7QOwBGEfo/HwsDug4Ep7QNwH/QnOYH/D9M4JRKLWvuP9i4AkXaDVympGGL/NZ3R3HdkaLQbBFRFUKpxQoutBFHhNFj2KKx2vzpJ1P7ib/W7mqbiz9dqBRCxeQDUtIoRQngGjiGGK3zz4zhpqHaFasOKVn6pe6UxgXHKwsYP3jfsOJlKGqfdgiU7KXz8KcJNIo4AQ8JxdsFtS4HlLo6BiPUAk+9weBx2GHj+4Pgxu+NxlIFA0jje8Y+cIggBrmYwKIEJOpxGFBSBiCKjMAnzKzY4hxJgCpolEBeETzhJ0PjEAAKMRuO6S8e9kMoOxo033puEYOoI0cmIBZiCZgqCq1Xfv+nL84s2vPRN9tesBp9FvxYEICp51zc/OxfM0mqEaIOQJQpOW0dbuwGX29bFiuAq2XEEopIatiV01MixxtiRAQMjooqM4YhHaWImSa46q5iNegaBkiG5w/INjR9MzHjsSqcofqUnUFbqG/JLJsj6ocwBXhCtBnnW10BqGARxculPilWDfAMg5RTqK6AehhIppgDCTWgTmYZXOJIAMea0iD6eOGtTZ3oqHgBVV7ANvEoHU7ACDIKhhGNpt39wcIUocOr/SvbT1FmPT/FaEIB469Gx4DthWlWNjs4xpg5j+loNhl1R3VZ6U5S9sLRyG4D/RaaWRhnYQ4EAAmwq7OeAp6PlMLdlMoSY0RkpABExl2+6jIPGiVaKx1oZTCH4Dmr4kgoDRMJGgChcHBNxRCSBIcqbWBUoSqbzaQzIYZQ5MJ4QADChEyAHKsl6pOVLMfgKtJmMGiK1Yfk/dgog0Re7xH2DyfgPLPc5Rhjh9pUClA32xDOLZShxj0Sg/pVIUtnt14IAsH+v00bj8bOz9MMD1021K0O0QMX8gtfbOZVjCTstRzgYGKRGMdaw5Tdi/zVyGyEDRiKQ4tABUKRKkS3Myrisc3Aw8xPYfhDIA9a5NA1jYbT8NQEbGFo+CItM+G6FsMcsjD5wLhe2A+Qv6AoOxQ3yomCxQctCAMVViCHmrBAx4xSBOEKIHpRNm/K6vNQsFfctWl2nXqsLAaJWQ48nnkBAYGf//OfXqmrlvKJO7le04ORfC6tiDn9Q25IG60slCxg/RATTxs1m3XOc2aiBOmOKdRzvyQ9t6Ehff93yQZ75KaI1WJySOQW5PsS0RkxJcuc09AAwpdzQCKUQNmciguKEAEEQvXUYhUQCPDxndEKymxhVHIfvxLi/fxzERJwgqn0p8ME8xxzFNqNFBFoQTDSqZUwh2AIogHA14CmCVplhNJoEdWi0ab3OQJkJJ1RZJhDPJY9T3zccNB0JBkMrjCazQntGGIouOvSKvRaP+5jmtbpeEwLQpQ11RjnVHAkF6eEDSDaNBtq4lxscuT3HGlps4NU+IHEo67GKLEIQRofDSWUOzveKbHOOawNtQABnQMgImEGujF6XGYEiEQhSB/s+HaJ6xUPgHXRC9MtooYCUIL9Aq2GFs5jyBJcVxiNWjzAagXYQfoPYavQmoIpC3IwVhvwAjUpxgCGDSV4C24CkWOxG2WA2R2PpGIRA0Gfib6rrh799MrruwpXPA1lxBbepVFyXM2utNUCnXIK8//8RgN2YnZMOB+1esybnTyCKI/bRKrvhN20lVJSFHUjGqqurXW+1zPt7ChgvkXBa191/FAOSgtdODDNUlqnxO9LnU6gUcsEIBNAtYDSxQghJHgU8OnGW5+wmo08j0GQazKRklOsaGrCdK4gkPii2p26EsYNlGQjAiHMBzD+QF2bHqBaCPQJ+zOV2wE4AamaTEZhEbqnG607Z9BH5S+OrWWH1i/6G5OJRg1bzGXgxyYAqVxCuFhGlYhQpP1s0w0m6WdaA4US8EzNCE+hy5twWrUWTS69ywkuiyq59pqHW8e2ntx2uRFwp0w/ggQeeSF924drcyOjIB4H9b+8bGAHrDiFPLMUP2vTTSge2/Bb85iMNjDZsEDQhSKTLI7vcVTAJrxJuX1rYZZNXABYgAJmxKmFbwrbAlYaCHkqC4U6GNQDrDGc7RH1YVyAhxDYB3F6JIuhRfwC8AlYhiwEIpLYXRzr7/uuSpSsVAjpV0m+tbz99wJ5IrLHopEUOi1auduh36zSp5y56d18HXN7KrYiVFF9xGl3FKWeasL1V88P29iPXvuP8vUnIzj1ex00ghcf6e7umaqRY+vFa1RYAR7NRJwbOHMeZ3uGwkDNTTGYIcDBUPBq63E4hnMG5H9x1DisAbQKF7x83aiEC5kshR4bKOCgFcM6HPyCOcogYAh7C43ZhHaDhiFnhb9iZCgtjqorJUKZweshmkjJWByFFdDjs4r3+YHS71ZeJRpqCXCamNAxBGjm8a6/sqXLdBPviZ3Gk/X4wqmz82eNbHgSzizERcYKQ7ORfJ/0U0NbensUSroPj9JVhyZodjkobw5lYd1RfOxUBTHreirCz1NLkNCa68fPkJv6j9g+xg3Gmhtk3+isGAQtj7oC5krSwD4SP5ri+AAwcTwnCRkAIfrKYzXFhEQz5BGZ3DAamYZz1oR9ASWAVxGmBtoa8ILyCjEGHfT8HE3S+Mw2EEGoCIRLWaR1oZ8a28Bw6zKgMrchX4j8la3Bo/RlpT28gfv9AIDMWU0wXcKvLCxJVIuuJvX3SCQDVVRKD++aAK1+Gcer16HXdd2/oiMw945IpjUDzmqqcVa2z1rvtnWDmBnnmhvsWjDGA84+BoIYO/hoUrAhmjdbBXNaF/h46B5pzkWCIKUQZPmMDQR4AFa9Y4qHsIVMH20SqgOkogHkN2QHhh8TMp7QQPILM9wwMDcsMPBGCGBfxEADjTrPxrDBowQDyBDCJcPPaMOlrwrkzce8jO4KXn9Y6DNOmzlROc+rowVfJBPKqqIzxpLP7/7UgAKhe4+cB3cqJwJkH73hii3CKPNZZFdVeWM/Civ6TbffEIKg5yqjiEPOi4yFCEDs3ZjYGnMc4bMwQ+HA2h8jdg+kf78tEIga7QoRiwUpgAYOH0LNiK2Bf0/wLgiMw+CArrBJpDDiYAA4sgkuMnzTIC4BhwwpCAopJQRiRQowrLJJhMNB7rCGVzH6RFLYXglg+ec89aZ2sdMOu0Qq54IUVdcgJTDRTAqi4oawrQvGsAcsO0a3pkJCnTLMBYIokc8PTgnAsRlMI7loimiiLoa0+hTZ04CQnTw6OXjxg3oXshrMe+n+Zg8xBp4DIbjdjtYCkEPeQHudwE+Y3OAnkoQQQ+gSkSxNSRgiFSFiRcFimUimJFQd+/yAeRTiMAiE747Loe6bZJCafmOWQB3fGsA2hPstnUM6sssyUAPjSiojgX65+Wx2W/1Za42Dwd82ktu2CjxAzRgN5/jYqzSxw+4biThh5IsyK6E7K8Snbp7iXN8gMQr1D1bGQP4hz4LEZz3i+9BnkPVr/JGGqzVUEPALJCL79DCQB4RBkAIJ4AAtHAqKrOYmNkkNsRShBHo4GhyVKKsVLZ9BAhLHfTnEzAm2s+NGXpufbN4PXqVk4fiD7mV2k3gkKLlKEKJz3FbOzBjNwDmZU2GQ3vVAkbSW3+C5NG/6zW7RbYE1LBh3iWLOwBmK4N0r7iRjA2U8zcSM0QrQZgKYIuRTE4eNsBvo/niViFO6kFeqlWXAadonUITAcPIlr3NhkPI4QYgsgPXgGPGOTx8+IiAcMeQARRRBZvN9ud26uM8zNFwUjbeUX9EL7QMRh0O3io+EcZQEn85o0cWdKAGoF1YGeVKj6kJ/ZRHYFVG52CGgOnlqnP5D/bDrfwTNIbRgBTTxwFMKYAYydhrwAzmxkCGnUiTO+RSztPJ8jbB3GEYOIxQDDhlM83b0w27ESxWHRA1sBnCIh7cfAczEjKAQXEnKAwhEUWxa3AvAOkFyOby+sL72Q+V5aGsGYhebhr/zLD38blfxSUmgtmWial93t6sbLj2ClcaQUuWWK7KX6vOQYlCiPtA9Jx8yv/BeysOMuWPJqo6nMOna6zWra/fk7N1Ui+DmuHN4AAYgKw5oYWO/av1R7XFDkGITQBzYFolOgkydHD8POFHwlcQuMHJdrsPaIDKrjnk7OXQiMAPorBDsUCWPsweFjX8fqQUIhty/O/dQ2Ij3KkuELKE4KVlgLk+8w0p/AaskBgOIl1u/OTZuSx3wX+HNa1x33PxE26nVdWLJgi5iihXF+35YrqzBd4e9ieSeN1WwIoFjh6j0xWNu92ibsyys4y/RazWb14Qw/oVVcauhO9Afg/7/R43ZQySNXuxxYtP85e8GUCQURBxNzXgykWAOgteORkUc6A2IDkU/gMZA9hjqCZ0SoO+j4IVAUW0ACxqTcEnikRDxfsVXQXbzKbcX2AeQxi03rsGi6UqHRp47t/2qzKhkENS0/wRrJCqKc7GawLUgb137jo++Yk59giu/575s0uFPkE49PFgGIwlOJdEso4K+DziRqs5i3VFKhcmncbhOkgh1pAEHscjsdR2tcNo3HCwWO3qA44AAA1y3BzXNhw7ma8XehcmaICJzrodyjmJcD7wIMDCOFUMuHkwk1xdwShOZwgihAtOxZGm0AG0GmOTitgzj7iS9cBVUioOde/saPHxyqi8xl0vyBKNeMwmdi0PQ6/X68jMhitSGNGXrKklexQVbfrX6WzFz4YDaiYFaEL8z/nFQ+AjK+DcavEKcoh+ZYjYcnPSz/Q23IpMYKX3zk29n9Uv/SumVPN9V7PwyfQGVOLaDZMDt5rKMLGA1GsO0Iww6gfcnB6LjFr0EPSsAya8Rg2gEAxZXDaNIBSIq6Py10BS4h/cNjrC7GcQUQmEgQmGTBVDHBnqDWa5dMFrvssWkDSjLyRCsklN6zzkpLmzZNqmv55h3/1KTXvwRLYR8Qy2qANUsrYZrKqf17fIbSd6aVZzYEwCqojVY/J6r1YyCKHuyPXKoBhw18oZe+/qv/Fuf4iQTlvxxX3rHk4r47YdJFYrlbsprkFSP+MSe291yS3D8Ys6Y6pxQIpWEpDKsjaB3t0LbYYHOkhWYQWH2KDYJ8Mow2J23yUzLDxVhtDgV8IXwHcLRTkrILx0FZB2cQxu2T41IsDb9CMJRep1WsGuQX08nUiza5/4/NzXYd+JMZ8zZqN1y0qrb7vo2DvYZMvMamTa6/445Lf/H5z8+YZ6qYCGZDAGVfEoHa1qbABVRGxCWnXTBKamNn80lOG3LXjKTt3O+UFv8FSp73RqAFRKRtOFukcBIwyUMjYeHBY8LMjsFyaCQI5xDs9xQV+6BCJqEA5EGsEDagiLlgnImfuAtvMzCN9A3grOcW4rLqIFKG1A9EEfbCFgFbxdzG+pzObPx9V8qeu/fe9lkPPvuD4eA+ddnyzWYlucyUDfvr6hrHjyf/nGRqt7Hfp7pKTaDj8s2GAMq+JJ221VfXm5oziY5veBoahb/hcW+fwY2lS4V9oDAj++o1834LjL8r4Zyhg5El8DkZ/zcOPQCkfmDetLJZCmFfjWIL4LEPWkA5g22C1r7k7iHhEwahJoBCDo7FaU0klv4cTwvwP6QHj0FjpsWwOG0ArFqxOZw6WPXus7vMm3p6oHKcPEDFJkWxe8VaLjctaPi2v2fA5qyZ/7YDWwwNSKSKmIulL3dPJZKyY8QCpssEqgWXe7l07bXX6q2O6pvHomkt7PUeveGuP4kgTGUzVfiw7ZjRBb2MYyH/Xz0Ow5Nup00Df0CxH1HiSEMQcvzwElYC0AlQ0xeDDoCcPc6EFBODFQBHB+6QM55iYZqP0buIYBCQIeAPOgB8BqAhpAKJgidYCMnzGuvBcJpva7v1QULaFOr+2eGFfTTlIKhNv+HOTT4ERHkE0cNrs6ncjer9k/lZKQGwUWrD8r8XrVuDPnYlhCmXjgWDu85zLuspmmh2N5WxBQtyd29oj+hzwBg2m8JYyuHQYcAMBp4PznKY7UJbiA7lERQ+IBDspFKY+UmFpuk8/NMkm8CSwGzAL1p+wmMJIFEwDxeiYAqG4tD2UXbgAmZwtdejrXJaXnGmfY+y+vRWKtKMige8IK/Ip9PoN8O/sReKpg8BQPvCgjT8qZbPT/WvMFmp+4XpKl4B1JeygPzvxxV416dbbbmo/wujg71YipMvry/eScflm+6NDQ9tyF17+eWWsejYUw6z9meNtVUa4v1ZsadTXMs9n84blOrh6Cfs/yELFoIejLSQD0DrBxGQLIVgVcS0XBB5HBzPT9mCgtUEZ39gBkL6KFc5rXGv3fQ138go9/0pJ8J028T0P3xs2yigbf7uH+iCxanvk7CHL5ykfG/ZMcBzpqnoKiy8XKZCqlI7IP9T8sVcOqMmZUz7uwI2s2ZjuQJn9QxvNUKCoxuzx6L+wVsQ+v1Zr9updTqsQs9f5bIJkS2ELMI2gH0GmoAMwCxEwpACUwIzPsjw/6JyiE4jGHOBH4hQswp4AsWGcPIEilrc3Kip9jr/84bbfvt8IOBKtE6BBzTTtqFZih3h7QxJf29jU/O8m6Sjqo6B/cyr2OAX3iv8PZ6zyP/TIYBJA32sInyR+ieKt1dXv8le3bwcFjnX21u0zxR55wm75T1rU3rQFtDcueGFEaMmfj049l6vx4M4QtUKQSCpFCLX7raZsL5DX4CtQZh847sBfMI4AYh+5bjDuYOWmdAP4AcxAWuqgSAKiPmG+jptg9e6cSzi+yF8FDXNre2p1tZ2MoAzudSBLJn3xxvf/RgwL7+QzGrPModyN5RMWPwBx6Pia8rKoKT8NGULb7tmncdeU/vsmO9oo79z/2l3t3cMVlyT4xPyver78r8z5USdwBSK77AZ0KxcdMUFqYz+YRwD7b6R4exRX0CodB3wATjqCwkDkAUNVdKh/nHYA4qKa4H144O/P8VVgKzHqgGtroYxBWTJC3Gz21OtXdDg2q5JBt/Tvb2/f0NHhziB5NWN9Sm81Pqp9c9/XtiW/GcT36+9vMEiK/O3NS8+bXEq6f/QjXc/9CAeVpT3WDq1rGJ1UJ9hS6zsqujF550273pJZ1mPgA/P/vTPr/yiTNEsT/0rk2ziUcm0GHiJf6tXr5PnJA/0pA3Ww267+WyTyeKE1w/MxPWY1dAJQDxMcCecBhEHGIhfWOKx70OXYJXisBtEZHE8JxikDniCLgnRyKRFTTXaOdX2l2FDfN3jW48cQpiRXFdXV9kOnajx9NqXl23867YD4fTyJvuCTDSwFhIJx193dt2PJ9N5NwuaMv1s5ADjNc37X6/NLfJ37YgbZc0jebcLv3IwZ3KVaoy4T47cvXKl5p5tTzzwrU9dPmardfwCsvrGo0PaLBTFQAA3yMQDiGPwiSgOlS4Qv+AVBOIwIiQddAvQ7sFSCKVZjRqYens0Xqfh98mY/4a2n248jAqr9S5Vj8I2VZquMN/Eb4/L9JvQ6OC8OfPXXnzrv352/Ve+/5PfTzws/0V9N+usfi+ao9IVoGjm/Js3feGDl+gMjrZwKPi9lpr0LwBWrC6V+cn4Xe3Iwvuz/r1tYEA0tqXWOKozGTfBZW8e1LhLIvEktnsFcsmEbIU3ELEEGE4GbCBmPhDDIPjhJ3UF8WRO67Zpc1qd5mfwOfhyKBgOX7a+i9HQK7nYthPWvs17B4bWrFjyTCye/qDJWfW+Nac0HHjh1X17K6lIpWkqJYCyjfraVWsbJL3rD/B5d4aGBz530x9erWTvL1tmpQ0olm756Qstd97/3JHr3rX2YfgOWuGLuCybTBmP+sYg2IkIm/7RsbA07A8Ii4gYZAFAndA6bSbNvHpPf7XL9NN6Q/L6G+95PNa81CrdfbevUOJX7LW8d8Lb9Mq+/vjSRkeNEgtdLKVjS85syd63ZU+IYuJKr7J1qpQAyr7skpUtV8rx0WsQmbO98Zwr7oANX6llp7Ayhb/LvqfCh/LyMxcpO3Z0ZR9t35FZscS1w2Fz/A1KwSx8AZu8DkQkQJRxwNNqwB9oKEVc3FStqa/2dDVUWX8LjUHb0NHwY5FwRrtlXxfCwlQ8+Gr1Km0T01WU9i2nN3UByazJ2bD4XEdVi/uMxdnnN+8cKrXCqvWo6LOiCpQoiXmVto9dsUpnr3oInH/AmBy++uaHt+8skZ63RZ4yz0/kI5knhHjHxfYfbHiaGHnK9R+5ZC1EwRfhuL8M4EzLIOhJI0BUHxj+P4Ptf+bmX/5594fevMy88Jyd8eGOVgsljSeyQnllFfZ7qQkzkeXq1tNdetgf1NXWLMklI9/47v1P3TzxcBZfpiMHKHyN0oZgEho5c3tkZGB+KBx+YIrBZ/4pG1r4kln8VqQ2eApFuogSwUse7ffv7jyw/5ahvuwH58/1XFjjdV4Cte4HRkZGfx4c9fcjjZJwnpIA4Sg+qZqKg5N1sR/UvlA/y77r3vYdAVMmeL1/eKBH72j88heuuuyKshkqfDidLYBUO4lyV5xyynWy0fPR4HD3K/Vew03t/+gh1l2xa1K+YglOxr12dPLWTj/l9eL9Ky9uyPYG67OPtLenNr24N/L01v2Rt7zn6njP2E4pqkmnsNxn1SBQ6meF9Zpt+5h/yjK2dg7vbZlbdRDGqh9tnDPvHRe0NB55dseB3RXWsWiyKV9aNBdu/uCT73oPQjTdf/ToQDwS9l3wQHvHjlJpcZ/vqYjSy5Rxoh6pdSls+/8r9ZuynZ9582nfdtvt3/RadXGEKv3JwJd8JJgAAAE9SURBVNDIj25p76qE8T6u7BltAXdcdca50tjg3frwsNGYCd9WweAf9+L/xRvqQPMz/+9/sUrTe/Wy5rP/3ZYLP5kMDN3ZPzj8FMDx39U27pgyvYKQejpbgCj8i+dW1edS2Q8astEus05n1aRSX27vHCoGRMwZps4ytdOnXcH/IxnUflI/yzb78W3bcqd7laaxLsPNt7965MDqJa7+SNiYeaXLh/Ps9K5pE8A5C90LQ7nEMzc/1f9fS13pbCIdi2zpiZCBKnVV1KhSmf+P3a+or7607mwzhFqBu1890sf+2Xo4FJ7J4DPvtLeAgL358B5pqQjwNJjJPJA0Gqcy9nx99rOnK7sq6iunz5iu08yfkZ9lZdV4PdXrPfB6D7zeA6/3wOs9MOseIFOj/s26sNe4gIoYspNUp5Px7qJl/g8Si8UCBxXqxwAAAABJRU5ErkJggg==';
+
+    rebuildTerritories();
+    selectOptions();
+    resize();
+    resizeRing();
+    new ResizeObserver(resizeRing).observe(ringCanvas);
+    new ResizeObserver(() => {
+      if (viewBar.getBoundingClientRect().width !== logicalWidth) resize();
+    }).observe(viewBar);
+    mobile.addEventListener('change', resize);
+    window.addEventListener('resize', resize);
+  </script>
+</body>
+</html>
